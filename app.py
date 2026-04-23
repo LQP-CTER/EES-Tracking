@@ -196,8 +196,9 @@ WORKSHEET_NAMES = {
 
 def _get_url(conn_name):
     try:
-        v = st.secrets["connections"][conn_name].get("spreadsheet", "")
-        if v and "ID_SHEET" not in v and v.strip(): return v
+        if "connections" in st.secrets and conn_name in st.secrets["connections"]:
+            v = st.secrets["connections"][conn_name].get("spreadsheet", "")
+            if v and "ID_SHEET" not in v and v.strip(): return v
     except Exception:
         pass
     return FALLBACK_URLS.get(conn_name, "")
@@ -213,27 +214,29 @@ def _canon_vung(row):
     return resolve_vung(row.get("region")) or row.get("region")
 
 
-# ─── FIX: chỉ gọi API 1 lần, TTL 10 phút để tránh rate limit ───────────────
+# ─── FIX: Chỉ gọi API 1 lần, TTL 10 phút để tránh rate limit ───────────────
 @st.cache_data(ttl=600, show_spinner="Đang tải Workforce Data…")
 def load_workforce():
     url = _get_url("workforce")
     if not url:
         raise ValueError("Workforce URL chưa được cấu hình — sửa secrets.toml hoặc FALLBACK_URLS.")
 
+    # Truyền trực tiếp tham số spreadsheet=url cho kết nối
     conn = st.connection("workforce", type=GSheetsConnection)
 
     # Chỉ gọi 1 lần với tên worksheet đúng, fallback 1 lần nếu fail
     primary_ws = WORKSHEET_NAMES.get("workforce", "Workforce Data")
     df = None
     try:
-        df = conn.read(worksheet=primary_ws)
+        # THÊM spreadsheet=url để tránh lỗi "Spreadsheet must be specified" khi Streamlit không tự tìm thấy trong secrets.toml
+        df = conn.read(spreadsheet=url, worksheet=primary_ws)
     except Exception:
         pass
 
     # Nếu tên chính không được, thử đọc sheet đầu tiên (1 lần duy nhất)
     if df is None or len(df) == 0:
         try:
-            df = conn.read()
+            df = conn.read(spreadsheet=url)
         except Exception as e:
             raise ValueError(f"Không kết nối được Workforce sheet: {str(e)[:200]}")
 
@@ -273,14 +276,16 @@ def load_survey(group_name):
 
         # Thử tên chính xác trước
         try:
-            df = conn.read(worksheet=primary_ws)
+            # THÊM spreadsheet=url
+            df = conn.read(spreadsheet=url, worksheet=primary_ws)
         except Exception:
             pass
 
         # Fallback: đọc sheet đầu tiên (1 lần)
         if df is None or len(df) == 0:
             try:
-                df = conn.read()
+                # THÊM spreadsheet=url
+                df = conn.read(spreadsheet=url)
             except Exception:
                 pass
 
