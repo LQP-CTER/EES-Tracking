@@ -178,10 +178,20 @@ SURVEY_GROUPS = ["2A", "2B", "3A", "3B"]
 
 FALLBACK_URLS = {
     "workforce": "https://docs.google.com/spreadsheets/d/1pyNwximXg0aZzahEroGdenxnUIRe1XWbnMy_YRULAn0/edit",
-    "survey_2A": "",
-    "survey_2B": "",
-    "survey_3A": "",
-    "survey_3B": "",
+    "survey_2A": "https://docs.google.com/spreadsheets/d/1AS22mEX2_kezYRGsWIDHGEXNQAKD4xG_4W8_jtBDA1o/edit",
+    "survey_2B": "https://docs.google.com/spreadsheets/d/1hmATsOmJ9a1WmZsBMSlITC3UH7zAnLRYXqQ2an1ppNo/edit",
+    "survey_3A": "https://docs.google.com/spreadsheets/d/1UFtIMOAqZj-uvidePYZiWLiYaq_Lg1rm0ttEJWYowb8/edit",
+    "survey_3B": "https://docs.google.com/spreadsheets/d/1E7_G8znrD-ITdvs894e-QUg9AJl7SQS3D6FhyYkeUbc/edit",
+}
+
+# Tên worksheet thực tế của từng connection
+# ← SỬA ĐÂY nếu tab sheet survey có tên khác
+WORKSHEET_NAMES = {
+    "workforce": "Workforce Data",
+    "survey_2A": "Form Responses 1",
+    "survey_2B": "Form Responses 1",
+    "survey_3A": "Form Responses 1",
+    "survey_3B": "Form Responses 1",
 }
 
 def _get_url(conn_name):
@@ -194,30 +204,44 @@ def _get_url(conn_name):
 
 
 def _canon_khoi(row):
-    """Suy ra Khối canonical từ department/division."""
     k = resolve_khoi(dept_name=row.get("department"), khoi_name=row.get("division"))
     return k or row.get("division")
 
 def _canon_vung(row):
-    """Vùng chỉ có ý nghĩa với Khối Thị Trường."""
     if row.get("khoi_canonical") != KHOI_THI_TRUONG:
         return None
     return resolve_vung(row.get("region")) or row.get("region")
 
 
-@st.cache_data(ttl=300, show_spinner="Đang tải Workforce Data…")
+# ─── FIX: chỉ gọi API 1 lần, TTL 10 phút để tránh rate limit ───────────────
+@st.cache_data(ttl=600, show_spinner="Đang tải Workforce Data…")
 def load_workforce():
     url = _get_url("workforce")
     if not url:
         raise ValueError("Workforce URL chưa được cấu hình — sửa secrets.toml hoặc FALLBACK_URLS.")
+
     conn = st.connection("workforce", type=GSheetsConnection)
+
+    # Chỉ gọi 1 lần với tên worksheet đúng, fallback 1 lần nếu fail
+    primary_ws = WORKSHEET_NAMES.get("workforce", "Workforce Data")
     df = None
-    for ws in ["data1", "Sheet1", None]:
+    try:
+        df = conn.read(worksheet=primary_ws)
+    except Exception:
+        pass
+
+    # Nếu tên chính không được, thử đọc sheet đầu tiên (1 lần duy nhất)
+    if df is None or len(df) == 0:
         try:
-            df = conn.read(worksheet=ws) if ws else conn.read()
-            if df is not None and len(df) > 0: break
-        except Exception: continue
-    if df is None: raise ValueError("Không đọc được sheet nào trong workforce.")
+            df = conn.read()
+        except Exception as e:
+            raise ValueError(f"Không kết nối được Workforce sheet: {str(e)[:200]}")
+
+    if df is None or len(df) == 0:
+        raise ValueError(
+            f"Sheet '{primary_ws}' trống hoặc không đọc được. "
+            "Kiểm tra tên tab sheet trong Google Sheets và sửa WORKSHEET_NAMES['workforce'] trong app.py."
+        )
 
     df = df.dropna(how="all")
     rename_map = {}
@@ -235,7 +259,8 @@ def load_workforce():
     return df
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+# ─── FIX: TTL 10 phút, gọi API 1 lần mỗi survey group ─────────────────────
+@st.cache_data(ttl=600, show_spinner=False)
 def load_survey(group_name):
     conn_name = f"survey_{group_name}"
     url = _get_url(conn_name)
@@ -243,13 +268,24 @@ def load_survey(group_name):
         return pd.DataFrame(), f"Chưa có URL cho nhóm {group_name}."
     try:
         conn = st.connection(conn_name, type=GSheetsConnection)
+        primary_ws = WORKSHEET_NAMES.get(conn_name, "Form Responses 1")
         df = None
-        for ws in [None, "Sheet1", "Form Responses 1", "Câu trả lời biểu mẫu 1"]:
+
+        # Thử tên chính xác trước
+        try:
+            df = conn.read(worksheet=primary_ws)
+        except Exception:
+            pass
+
+        # Fallback: đọc sheet đầu tiên (1 lần)
+        if df is None or len(df) == 0:
             try:
-                df = conn.read(worksheet=ws) if ws else conn.read()
-                if df is not None and len(df) > 0: break
-            except Exception: continue
-        if df is None: return pd.DataFrame(), f"Không đọc được {conn_name}."
+                df = conn.read()
+            except Exception:
+                pass
+
+        if df is None:
+            return pd.DataFrame(), f"Không đọc được {conn_name}."
     except Exception as e:
         return pd.DataFrame(), f"Không kết nối được {conn_name}: {str(e)[:150]}"
 
@@ -277,7 +313,7 @@ def load_survey(group_name):
     return df, None
 
 
-@st.cache_data(ttl=300, show_spinner="Đang tải toàn bộ khảo sát…")
+@st.cache_data(ttl=600, show_spinner="Đang tải toàn bộ khảo sát…")
 def load_all_surveys():
     parts, warnings = [], []
     for g in SURVEY_GROUPS:
@@ -350,7 +386,8 @@ with st.sidebar.expander("🔍 Debug Config", expanded=False):
         st.caption(f"**Secrets:** ✗ {str(e)[:80]}")
     for cn in ["workforce"] + [f"survey_{g}" for g in SURVEY_GROUPS]:
         url = _get_url(cn)
-        st.caption(f"• `{cn}`: {'✓' if url else '❌ trống'}")
+        ws_name = WORKSHEET_NAMES.get(cn, "—")
+        st.caption(f"• `{cn}` [{ws_name}]: {'✓' if url else '❌ trống'}")
 
 def safe_unique(s):
     return sorted([x for x in s.dropna().unique() if str(x).strip() != ""])
@@ -791,13 +828,11 @@ if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
     sv_v = df_ktt_sv.groupby("vung_canonical").size().rename("ac") if len(df_ktt_sv) else pd.Series(dtype=int, name="ac")
     mx = pd.concat([wf_v, sv_v], axis=1).fillna(0).astype(int)
     mx["pct"] = (mx["ac"] / mx["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-    # Fix KeyError: concat có thể làm mất index name, nên đặt tên cột rõ ràng
     mx = mx.reset_index()
     mx = mx.rename(columns={mx.columns[0]: "vung"})
     order_map = {v: i for i, v in enumerate(VUNG_LIST)}
     mx["_ord"] = mx["vung"].map(lambda v: order_map.get(v, 999))
     mx = mx.sort_values("_ord").reset_index(drop=True)
-    # Loại bỏ hàng có vung = None/NaN (nếu có)
     mx = mx[mx["vung"].notna() & (mx["vung"].astype(str).str.strip() != "")]
 
     fig_mat = go.Figure(data=go.Heatmap(
