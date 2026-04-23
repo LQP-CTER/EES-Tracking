@@ -28,94 +28,132 @@ from org_hierarchy import (
 KHOI_THI_TRUONG = "Khối Thị Trường"  # Khối duy nhất có Vùng
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 1. PAGE CONFIG + BRAND + CSS
+# 1. PAGE CONFIG + BRAND + CSS (THEME GHN EES 2026 LANDING PAGE)
 # ═══════════════════════════════════════════════════════════════════════════
 st.set_page_config(page_title="GHN EES 2026 · Survey Progress", page_icon="./img/Logo_EES.png",
                    layout="wide", initial_sidebar_state="expanded")
 
 BRAND = {
     "NAVY":"#0A1F44","ORANGE":"#FF5200","BLUE":"#006FAD","BEIGE":"#F5F4F0",
-    "BG":"#FFFFFF","TEXT":"#333333","MUTED":"#666666","BORDER":"#EAEAEA","GRID":"#EEEEEE",
-    "AC":"#0A1F44","PY":"#999999","POS":"#006400","NEG":"#D32F2F",
+    "GOLD":"#F8B200","BG":"#FFFFFF","TEXT":"#444444","MUTED":"#888888","BORDER":"#E0DDD6","GRID":"#EEEEEE",
+    "AC":"#006FAD","PY":"#999999","POS":"#006400","NEG":"#D32F2F",
 }
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-.stApp {{ background-color: #FFFFFF; }}
-html, body, [class*="css"] {{ font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif!important; color:{BRAND['TEXT']}; }}
-h1,h2,h3,h4 {{ color:{BRAND['NAVY']}!important; font-weight:700!important; letter-spacing:-0.01em; }}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
-[data-testid="stSidebar"] {{ background-color:{BRAND['BEIGE']}; border-right:1px solid {BRAND['BORDER']}; }}
+/* Main Background and Fonts */
+.stApp {{ background-color: {BRAND['BEIGE']}; }}
+.block-container {{ padding-top: 2rem; padding-bottom: 2.5rem; max-width: 1300px; }}
+html, body, [class*="css"] {{ font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif!important; color:{BRAND['TEXT']}; }}
+h1, h2, h3, h4 {{ color:{BRAND['NAVY']}!important; font-weight:800!important; letter-spacing:-0.03em; }}
+
+/* Sidebar Sync */
+[data-testid="stSidebar"] {{ background-color:{BRAND['BG']}; border-right:1px solid {BRAND['BORDER']}; }}
 [data-testid="stSidebar"] * {{ color:{BRAND['NAVY']}; }}
-.stSelectbox label,.stMultiSelect label,.stDateInput label {{ font-size:0.72rem!important; font-weight:700!important;
-    text-transform:uppercase; letter-spacing:0.08em; color:{BRAND['MUTED']}!important; }}
-#MainMenu,footer,header {{ visibility:hidden; }}
-.block-container {{ padding-top:1.5rem; padding-bottom:2rem; }}
+.stSelectbox label, .stMultiSelect label, .stDateInput label {{ 
+    font-size:0.75rem!important; font-weight:700!important; text-transform:uppercase; 
+    letter-spacing:0.08em; color:{BRAND['NAVY']}!important; 
+}}
 
-.report-header {{ border-bottom:3px solid {BRAND['NAVY']}; padding-bottom:16px; margin-bottom:28px;
-    display:flex; justify-content:space-between; align-items:flex-end; }}
-.report-header .brand-tag {{ font-size:0.75rem; color:{BRAND['BLUE']}; text-transform:uppercase;
-    font-weight:700; letter-spacing:0.12em; margin-bottom:6px; }}
-.report-header h1 {{ font-size:2rem!important; font-weight:800!important; color:{BRAND['NAVY']}!important;
-    line-height:1.1!important; margin:0!important; }}
+/* Hidden elements */
+#MainMenu, footer, header {{ visibility:hidden; }}
+
+/* Hero Report Header */
+.report-header {{ 
+    background: {BRAND['BG']}; padding: 32px 40px; border: 1px solid {BRAND['BORDER']}; 
+    border-left: 5px solid {BRAND['ORANGE']}; margin-bottom: 32px; 
+    display:flex; justify-content:space-between; align-items:flex-end; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+}}
+.report-header .brand-tag {{ 
+    font-size:0.8rem; color:{BRAND['BLUE']}; text-transform:uppercase; 
+    font-weight:800; letter-spacing:0.15em; margin-bottom:10px; display: flex; align-items: center; gap: 8px;
+}}
+.report-header .brand-tag::after {{ content:""; display:block; height:1px; width:40px; background:{BRAND['BLUE']}; }}
+.report-header h1 {{ 
+    font-size:clamp(2rem, 4vw, 2.5rem)!important; font-weight:900!important; 
+    color:{BRAND['NAVY']}!important; line-height:1.1!important; margin:0!important; 
+    text-transform: uppercase; letter-spacing: -0.04em;
+}}
 .report-header h1 .accent {{ color:{BRAND['ORANGE']}; }}
-.report-header .subtitle {{ font-size:0.88rem; color:{BRAND['MUTED']}; margin-top:6px; }}
-.report-header .meta-label {{ font-size:0.7rem; color:{BRAND['MUTED']}; text-transform:uppercase;
-    letter-spacing:0.08em; margin-bottom:4px; }}
-.report-header .meta-value {{ font-size:0.85rem; font-weight:600; color:{BRAND['NAVY']}; }}
+.report-header .subtitle {{ font-size:1rem; color:{BRAND['TEXT']}; margin-top:10px; line-height: 1.6; max-width: 600px; }}
+.report-header .meta-label {{ font-size:0.7rem; color:{BRAND['MUTED']}; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }}
+.report-header .meta-value {{ font-size:0.85rem; font-weight:700; color:{BRAND['NAVY']}; }}
 
-.kpi-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }}
-.kpi-card {{ background:#FFF; border:1px solid {BRAND['BORDER']}; border-top:3px solid {BRAND['NAVY']};
-    padding:16px 20px; }}
-.kpi-card .kpi-label {{ font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em;
-    color:{BRAND['MUTED']}; font-weight:700; margin-bottom:8px; }}
-.kpi-card .kpi-value {{ font-size:2rem; font-weight:800; color:{BRAND['NAVY']}; line-height:1.1; }}
-.kpi-card .kpi-sub {{ font-size:0.78rem; margin-top:8px; color:{BRAND['MUTED']}; }}
-.kpi-card.done {{ border-top-color:{BRAND['POS']}; }} .kpi-card.done .kpi-value {{ color:{BRAND['POS']}; }}
-.kpi-card.pending {{ border-top-color:{BRAND['ORANGE']}; }} .kpi-card.pending .kpi-value {{ color:{BRAND['ORANGE']}; }}
-.kpi-card.growth {{ border-top-color:{BRAND['BLUE']}; }}
+/* KPI Cards (Landing Page Stats Style) */
+.kpi-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }}
+.kpi-card {{ 
+    background:{BRAND['BG']}; border:1px solid {BRAND['BORDER']}; padding:24px; 
+    border-left: 4px solid {BRAND['NAVY']}; box-shadow: 0 2px 12px rgba(0,0,0,0.02); 
+}}
+.kpi-card.done {{ border-left-color: {BRAND['BLUE']}; }}
+.kpi-card.pending {{ border-left-color: {BRAND['ORANGE']}; }}
+.kpi-card.growth {{ border-left-color: {BRAND['GOLD']}; }}
+
+.kpi-card .kpi-label {{ font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:{BRAND['MUTED']}; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px; }}
+.kpi-card .kpi-value {{ font-size:2.5rem; font-weight:800; color:{BRAND['NAVY']}; line-height:1; letter-spacing:-0.04em; }}
+.kpi-card.done .kpi-value {{ color: {BRAND['BLUE']}; }}
+.kpi-card.pending .kpi-value {{ color: {BRAND['ORANGE']}; }}
+.kpi-card.growth .kpi-value {{ color: {BRAND['GOLD']}; text-shadow: 0 0 10px rgba(248,178,0,0.2); }}
+.kpi-card .kpi-sub {{ font-size:0.85rem; margin-top:10px; color:{BRAND['TEXT']}; line-height:1.4; }}
+
 .delta-pos {{ color:{BRAND['POS']}; font-weight:700; }}
 .delta-neg {{ color:{BRAND['NEG']}; font-weight:700; }}
 .delta-neu {{ color:{BRAND['MUTED']}; font-weight:500; }}
 
-.ibcs-section {{ background:#FFF; border:1px solid {BRAND['BORDER']}; padding:20px 24px; margin-bottom:18px; }}
-.ibcs-section h3 {{ font-size:0.92rem!important; font-weight:700!important;
-    border-bottom:2px solid {BRAND['NAVY']}; padding-bottom:8px; margin-bottom:14px!important;
-    text-transform:uppercase; letter-spacing:0.05em; color:{BRAND['NAVY']}!important; }}
-.section-msg {{ font-size:0.82rem; color:{BRAND['MUTED']}; margin:-8px 0 14px 0; font-style:italic; }}
+/* IBCS Sections (Landing Page Block Style) */
+.ibcs-section {{ 
+    background:{BRAND['BG']}; border:1px solid {BRAND['BORDER']}; padding:32px 40px; 
+    margin-bottom:24px; box-shadow: 0 4px 16px rgba(0,0,0,0.02); 
+}}
+.ibcs-section h3 {{ 
+    font-size:1.2rem!important; font-weight:800!important; margin-bottom:20px!important; 
+    text-transform:uppercase; letter-spacing:0.18em; color:{BRAND['ORANGE']}!important; 
+    display: flex; align-items: center; gap: 0.7rem; 
+}}
+.ibcs-section h3::after {{ content: ""; flex: 1; height: 1px; background: {BRAND['BORDER']}; }}
+.section-msg {{ font-size:0.95rem; color:{BRAND['TEXT']}; margin:-8px 0 20px 0; line-height:1.6; max-width:800px; text-align:justify; }}
 
-.ibcs-table {{ width:100%; border-collapse:collapse; font-size:0.8rem; }}
-.ibcs-table th {{ background:#F7F7F7; border-bottom:2px solid {BRAND['NAVY']}; padding:8px 10px;
-    text-align:left; font-weight:700; text-transform:uppercase; font-size:0.7rem; letter-spacing:0.05em;
-    color:{BRAND['MUTED']}; }}
+/* Tables */
+.ibcs-table {{ width:100%; border-collapse:collapse; font-size:0.85rem; }}
+.ibcs-table th {{ 
+    background:{BRAND['BEIGE']}; border-bottom:2px solid {BRAND['NAVY']}; padding:12px 14px; 
+    text-align:left; font-weight:700; text-transform:uppercase; font-size:0.75rem; letter-spacing:0.05em; color:{BRAND['NAVY']}; 
+}}
 .ibcs-table th.num {{ text-align:right; }}
-.ibcs-table td {{ padding:7px 10px; border-bottom:1px solid #EEE; color:{BRAND['TEXT']}; }}
+.ibcs-table td {{ padding:10px 14px; border-bottom:1px solid {BRAND['BORDER']}; color:{BRAND['TEXT']}; }}
 .ibcs-table td.num {{ text-align:right; font-variant-numeric:tabular-nums; }}
 .ibcs-table tr:hover {{ background:#FAFAFA; }}
-.ibcs-table .pos {{ color:{BRAND['POS']}; font-weight:600; }}
-.ibcs-table .neg {{ color:{BRAND['NEG']}; font-weight:600; }}
+.ibcs-table .pos {{ color:{BRAND['POS']}; font-weight:700; }}
+.ibcs-table .neg {{ color:{BRAND['NEG']}; font-weight:700; }}
 .ibcs-table .neutral {{ color:{BRAND['MUTED']}; font-weight:500; }}
-.ibcs-table .total-row td {{ border-top:2px solid {BRAND['NAVY']}; font-weight:700; background:#F9F9F9; }}
-.mini-bar-bg {{ background:#EEE; height:6px; border-radius:1px; position:relative; min-width:80px; }}
-.mini-bar-fill {{ height:6px; border-radius:1px; position:absolute; top:0; left:0; }}
+.ibcs-table .total-row td {{ border-top:2px solid {BRAND['NAVY']}; font-weight:800; background:#FAFAF8; color:{BRAND['ORANGE']}; }}
 
-.status-msg {{ border-left:4px solid {BRAND['BLUE']}; background:#FBFBFB; padding:14px 18px;
-    margin:16px 0; border-top:1px solid {BRAND['BORDER']}; border-right:1px solid {BRAND['BORDER']};
-    border-bottom:1px solid {BRAND['BORDER']}; font-size:0.85rem; }}
+/* Mini Bars inside tables */
+.mini-bar-bg {{ background:{BRAND['GRID']}; height:8px; border-radius:2px; position:relative; min-width:80px; overflow:hidden; }}
+.mini-bar-fill {{ height:8px; border-radius:2px; position:absolute; top:0; left:0; }}
+
+/* Status Messages */
+.status-msg {{ 
+    border-left:4px solid {BRAND['BLUE']}; background:#FBFBFB; padding:16px 20px; 
+    margin:16px 0; border:1px solid {BRAND['BORDER']}; border-left-width:4px; font-size:0.9rem; line-height:1.6;
+}}
 .status-msg.warn {{ border-left-color:{BRAND['ORANGE']}; }}
 .status-msg.err {{ border-left-color:{BRAND['NEG']}; }}
-.status-msg strong {{ color:{BRAND['NAVY']}; display:block; margin-bottom:4px;
-    text-transform:uppercase; letter-spacing:0.03em; font-size:0.78rem; }}
+.status-msg strong {{ color:{BRAND['NAVY']}; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.85rem; font-weight:800; }}
 
-.report-footer {{ font-size:0.72rem; color:#AAA; text-align:center; padding:14px;
-    border-top:1px solid {BRAND['BORDER']}; margin-top:24px; }}
+/* CTA Buttons */
+.stButton > button {{ 
+    background:{BRAND['ORANGE']}!important; color:#FFF!important; border:none!important; 
+    border-radius:2px!important; font-weight:800!important; text-transform:uppercase!important; 
+    font-size:0.85rem!important; letter-spacing:0.06em!important; padding:0.8rem 1.5rem!important; 
+    width:100%; transition:all 0.2s!important; box-shadow: 0 4px 12px rgba(255,82,0,0.25)!important; 
+}}
+.stButton > button:hover {{ transform:translateY(-1px); box-shadow: 0 6px 16px rgba(255,82,0,0.35)!important; background:#F64C00!important; color:#fff!important; }}
 
-.stButton > button {{ background:#FFF!important; color:{BRAND['NAVY']}!important;
-    border:1px solid {BRAND['NAVY']}!important; border-radius:0!important; font-weight:600!important;
-    text-transform:uppercase!important; font-size:0.75rem!important; letter-spacing:0.05em!important;
-    padding:0.5rem 1rem!important; width:100%; transition:all 0.2s!important; }}
-.stButton > button:hover {{ border-color:{BRAND['ORANGE']}!important; color:{BRAND['ORANGE']}!important; }}
+.report-footer {{ font-size:0.75rem; color:{BRAND['MUTED']}; text-align:center; padding:20px; border-top:1px solid {BRAND['BORDER']}; margin-top:32px; background:{BRAND['BG']}; display:flex; justify-content:space-between; align-items:center; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -185,7 +223,6 @@ FALLBACK_URLS = {
 }
 
 # Tên worksheet thực tế của từng connection
-# ← SỬA ĐÂY nếu tab sheet survey có tên khác
 WORKSHEET_NAMES = {
     "workforce": "Workforce Data",
     "survey_2A": "Form Responses 1",
@@ -203,7 +240,6 @@ def _get_url(conn_name):
         pass
     return FALLBACK_URLS.get(conn_name, "")
 
-
 def _canon_khoi(row):
     k = resolve_khoi(dept_name=row.get("department"), khoi_name=row.get("division"))
     return k or row.get("division")
@@ -214,26 +250,20 @@ def _canon_vung(row):
     return resolve_vung(row.get("region")) or row.get("region")
 
 
-# ─── FIX: Chỉ gọi API 1 lần, TTL 10 phút để tránh rate limit ───────────────
 @st.cache_data(ttl=600, show_spinner="Đang tải Workforce Data…")
 def load_workforce():
     url = _get_url("workforce")
     if not url:
         raise ValueError("Workforce URL chưa được cấu hình — sửa secrets.toml hoặc FALLBACK_URLS.")
 
-    # Truyền trực tiếp tham số spreadsheet=url cho kết nối
     conn = st.connection("workforce", type=GSheetsConnection)
-
-    # Chỉ gọi 1 lần với tên worksheet đúng, fallback 1 lần nếu fail
     primary_ws = WORKSHEET_NAMES.get("workforce", "Workforce Data")
     df = None
     try:
-        # THÊM spreadsheet=url để tránh lỗi "Spreadsheet must be specified" khi Streamlit không tự tìm thấy trong secrets.toml
         df = conn.read(spreadsheet=url, worksheet=primary_ws)
     except Exception:
         pass
 
-    # Nếu tên chính không được, thử đọc sheet đầu tiên (1 lần duy nhất)
     if df is None or len(df) == 0:
         try:
             df = conn.read(spreadsheet=url)
@@ -262,7 +292,6 @@ def load_workforce():
     return df
 
 
-# ─── FIX: TTL 10 phút, gọi API 1 lần mỗi survey group ─────────────────────
 @st.cache_data(ttl=600, show_spinner=False)
 def load_survey(group_name):
     conn_name = f"survey_{group_name}"
@@ -274,17 +303,13 @@ def load_survey(group_name):
         primary_ws = WORKSHEET_NAMES.get(conn_name, "Form Responses 1")
         df = None
 
-        # Thử tên chính xác trước
         try:
-            # THÊM spreadsheet=url
             df = conn.read(spreadsheet=url, worksheet=primary_ws)
         except Exception:
             pass
 
-        # Fallback: đọc sheet đầu tiên (1 lần)
         if df is None or len(df) == 0:
             try:
-                # THÊM spreadsheet=url
                 df = conn.read(spreadsheet=url)
             except Exception:
                 pass
@@ -338,9 +363,9 @@ now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 st.markdown(f"""
 <div class="report-header">
   <div>
-    <div class="brand-tag">GiaoHangNhanh · Internal</div>
-    <h1><span class="accent">EES 2026</span> SURVEY PROGRESS</h1>
-    <div class="subtitle">Báo cáo tiến độ khảo sát EES · Nhóm 2A · 2B · 3A · 3B</div>
+    <div class="brand-tag">GIAO HÀNG NHANH</div>
+    <h1>EES RACE <span class="accent">2026</span></h1>
+    <div class="subtitle">Báo cáo tiến độ cuộc đua khảo sát mức độ gắn kết EES · Dành cho nhóm 2A, 2B, 3A, 3B. Tiếng nói của bạn định hình tương lai GHN.</div>
   </div>
   <div style="text-align:right;">
     <div class="meta-label">Cập nhật lần cuối</div>
@@ -372,12 +397,12 @@ except Exception as e:
 # 7. SIDEBAR FILTERS
 # ═══════════════════════════════════════════════════════════════════════════
 st.sidebar.markdown(f"""
-<div style='border-bottom:2px solid {BRAND["NAVY"]}; padding-bottom:10px; margin-bottom:14px;'>
-<strong style='font-size:0.95rem;'>📊 BỘ LỌC BÁO CÁO</strong><br/>
-<span style='font-size:0.72rem; color:#888;'>Report Filters</span>
+<div style='border-bottom:2px solid {BRAND["BORDER"]}; padding-bottom:10px; margin-bottom:14px;'>
+<strong style='font-size:1.1rem; color:{BRAND["ORANGE"]}; font-weight: 800;'>📊 BỘ LỌC BÁO CÁO</strong><br/>
+<span style='font-size:0.75rem; color:{BRAND["MUTED"]};'>Data Filters</span>
 </div>""", unsafe_allow_html=True)
 
-if st.sidebar.button("🔄 Đồng bộ dữ liệu"):
+if st.sidebar.button("🔄 ĐỒNG BỘ DỮ LIỆU"):
     st.cache_data.clear(); st.rerun()
 
 # Debug expander
@@ -470,7 +495,7 @@ if len(df_sv_f) > 0 and df_sv_f["timestamp"].notna().any():
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"""
 <div style='font-size:0.75rem; line-height:1.8;'>
-<strong style="font-size:0.72rem; letter-spacing:0.05em;">KÝ HIỆU IBCS</strong><br/>
+<strong style="font-size:0.72rem; letter-spacing:0.05em; color:{BRAND['NAVY']}">KÝ HIỆU IBCS</strong><br/>
 <span style='display:inline-block; width:14px; height:10px; background:{BRAND["AC"]}; margin-right:4px; vertical-align:middle'></span> Hiện tại (AC)<br/>
 <span style='display:inline-block; width:14px; height:10px; background:{BRAND["PY"]}; margin-right:4px; vertical-align:middle'></span> Kỳ trước (PY)<br/>
 <span style='display:inline-block; width:14px; height:10px; background:{BRAND["POS"]}; margin-right:4px; vertical-align:middle'></span> Δ Positive<br/>
@@ -510,22 +535,22 @@ def fmt_delta(val, suffix=""):
 st.markdown(f"""
 <div class="kpi-grid">
 <div class="kpi-card">
-  <div class="kpi-label">👥 Tổng Nhân Sự</div>
+  <div class="kpi-label">👥 TỔNG NHÂN SỰ</div>
   <div class="kpi-value">{total_hc:,}</div>
-  <div class="kpi-sub">Headcount trong phạm vi bộ lọc</div>
+  <div class="kpi-sub">Headcount trong phạm vi lọc</div>
 </div>
 <div class="kpi-card done">
-  <div class="kpi-label">✅ Số Đã Làm</div>
+  <div class="kpi-label">✅ ĐÃ HOÀN THÀNH</div>
   <div class="kpi-value">{total_done:,}</div>
-  <div class="kpi-sub">Tổng response · {pct_done:.1f}% / Tổng HC</div>
+  <div class="kpi-sub">Tổng lượt làm · {pct_done:.1f}% / Tổng HC</div>
 </div>
 <div class="kpi-card pending">
-  <div class="kpi-label">⏳ Số Chưa Làm</div>
+  <div class="kpi-label">⏳ CHƯA THAM GIA</div>
   <div class="kpi-value">{total_pending:,}</div>
-  <div class="kpi-sub">Ước tính = HC − Response (aggregate)</div>
+  <div class="kpi-sub">Ước tính = HC − Response</div>
 </div>
 <div class="kpi-card growth">
-  <div class="kpi-label">📈 Tăng Trưởng (Hôm Nay)</div>
+  <div class="kpi-label">📈 TĂNG TRƯỞNG (HÔM NAY)</div>
   <div class="kpi-value">{n_today:,}</div>
   <div class="kpi-sub">{fmt_delta(growth)} so với hôm qua ({n_yesterday:,})</div>
 </div>
@@ -560,8 +585,8 @@ if df_sv_f["timestamp"].notna().any():
     daily["date_lbl"] = daily["_date"].apply(lambda d: d.strftime("%d/%m"))
 
     first_pct, last_pct = daily["pct"].iloc[0], daily["pct"].iloc[-1]
-    trend_msg = (f'Tỷ lệ adoption tăng từ <b>{first_pct:.1f}%</b> lên <b>{last_pct:.1f}%</b> '
-                 f'(+{last_pct-first_pct:.1f}pp) trong {len(daily)} kỳ báo cáo')
+    trend_msg = (f'Tỷ lệ tham gia tăng từ <b>{first_pct:.1f}%</b> lên <b>{last_pct:.1f}%</b> '
+                 f'(+{last_pct-first_pct:.1f}pp) trong {len(daily)} kỳ báo cáo.')
     st.markdown(f'<p class="section-msg">{trend_msg}</p>', unsafe_allow_html=True)
 
     fig_t = make_subplots(specs=[[{"secondary_y": True}]])
@@ -573,23 +598,23 @@ if df_sv_f["timestamp"].notna().any():
     ), secondary_y=False)
     fig_t.add_trace(go.Scatter(
         x=daily["date_lbl"], y=daily["pct"],
-        name="% Adoption", mode="lines+markers+text",
-        line=dict(color=BRAND["NAVY"], width=2.5),
-        marker=dict(size=5, color=BRAND["NAVY"]),
+        name="% Hoàn thành", mode="lines+markers+text",
+        line=dict(color=BRAND["AC"], width=3),
+        marker=dict(size=6, color=BRAND["AC"]),
         text=[f"{v:.1f}%" for v in daily["pct"]],
-        textposition="top center", textfont=dict(size=9, color=BRAND["NAVY"]),
-        hovertemplate="<b>%{x}</b><br>Adoption: %{y:.1f}%<extra></extra>",
+        textposition="top center", textfont=dict(size=10, color=BRAND["AC"], weight="bold"),
+        hovertemplate="<b>%{x}</b><br>Hoàn thành: %{y:.1f}%<extra></extra>",
     ), secondary_y=True)
 
     fig_t.update_layout(
-        **ibcs_layout(height=380, margin=dict(l=50, r=50, t=20, b=50), showlegend=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+        **ibcs_layout(height=400, margin=dict(l=50, r=50, t=20, b=50), showlegend=True),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11, color=BRAND["NAVY"])),
         bargap=0.3,
     )
-    fig_t.update_xaxes(type="category", tickangle=-45)
-    fig_t.update_yaxes(title_text="User mới (người)", secondary_y=False, showgrid=False)
-    fig_t.update_yaxes(title_text="Tỷ lệ Adoption (%)", secondary_y=True, range=[0, 105],
-                        showgrid=True, gridcolor=BRAND["GRID"])
+    fig_t.update_xaxes(type="category", tickangle=-45, tickfont=dict(color=BRAND["NAVY"]))
+    fig_t.update_yaxes(title_text="User mới (người)", secondary_y=False, showgrid=False, title_font=dict(color=BRAND["NAVY"]))
+    fig_t.update_yaxes(title_text="Tỷ lệ Hoàn thành (%)", secondary_y=True, range=[0, 105],
+                        showgrid=True, gridcolor=BRAND["GRID"], title_font=dict(color=BRAND["NAVY"]))
     st.plotly_chart(fig_t, use_container_width=True)
 else:
     st.info("Chưa có cột timestamp hợp lệ trong data survey.")
@@ -601,7 +626,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # 10. SECTION — PHÂN TÍCH THEO KHỐI · TỶ LỆ ADOPTION
 # ═══════════════════════════════════════════════════════════════════════════
 st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-st.markdown("<h3>PHÂN TÍCH THEO KHỐI (DIVISION) · TỶ LỆ ADOPTION</h3>", unsafe_allow_html=True)
+st.markdown("<h3>PHÂN TÍCH THEO KHỐI (DIVISION) · TIẾN ĐỘ</h3>", unsafe_allow_html=True)
 
 if df_sv_f["timestamp"].notna().any():
     sv_today = df_sv_f[df_sv_f["timestamp"].dt.date <= today]
@@ -626,7 +651,7 @@ khoi_df = khoi_df.sort_values("pct_ac", ascending=True).reset_index(drop=True)
 if len(khoi_df) > 0:
     top = khoi_df.sort_values("pct_ac", ascending=False).iloc[0]
     bot = khoi_df.sort_values("pct_ac", ascending=True).iloc[0]
-    msg = f'Khối cao nhất: <b>{top["name"]}</b> ({top["pct_ac"]:.1f}%) · Thấp nhất: <b>{bot["name"]}</b> ({bot["pct_ac"]:.1f}%)'
+    msg = f'Đứng đầu đường đua: <b>{top["name"]}</b> ({top["pct_ac"]:.1f}%) · Đang tăng tốc: <b>{bot["name"]}</b> ({bot["pct_ac"]:.1f}%)'
     st.markdown(f'<p class="section-msg">{msg}</p>', unsafe_allow_html=True)
 
     col_chart, col_tbl = st.columns([3, 2])
@@ -638,15 +663,15 @@ if len(khoi_df) > 0:
             name=f"Kỳ trước ({yesterday.strftime('%d/%m')})",
             marker_color=BRAND["PY"], marker_line=dict(width=0),
             text=[f"{v:.1f}%" for v in khoi_df["pct_py"]],
-            textposition="outside", textfont=dict(size=9, color="#999"),
+            textposition="outside", textfont=dict(size=10, color=BRAND["MUTED"]),
             hovertemplate="<b>%{y}</b><br>Kỳ trước: %{x:.1f}%<extra></extra>",
         ))
         fig_k.add_trace(go.Bar(
             y=khoi_df["name"], x=khoi_df["pct_ac"], orientation="h",
             name=f"Hiện tại ({today.strftime('%d/%m')})",
-            marker_color=BRAND["NAVY"], marker_line=dict(width=0),
+            marker_color=BRAND["AC"], marker_line=dict(width=0),
             text=[f"{v:.1f}%" for v in khoi_df["pct_ac"]],
-            textposition="outside", textfont=dict(size=9, color=BRAND["NAVY"]),
+            textposition="outside", textfont=dict(size=10, color=BRAND["NAVY"], weight="bold"),
             hovertemplate="<b>%{y}</b><br>Hiện tại: %{x:.1f}%<extra></extra>",
         ))
         fig_k.update_layout(
@@ -655,10 +680,10 @@ if len(khoi_df) > 0:
                 margin=dict(l=220, r=60, t=10, b=30),
                 barmode="group", bargap=0.25, bargroupgap=0.05, showlegend=True,
             ),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=11, color=BRAND["NAVY"])),
         )
         fig_k.update_xaxes(range=[0, 105], dtick=25, showgrid=True, gridcolor=BRAND["GRID"])
-        fig_k.update_yaxes(showgrid=False, tickfont=dict(size=10))
+        fig_k.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
         st.plotly_chart(fig_k, use_container_width=True)
 
     with col_tbl:
@@ -671,11 +696,11 @@ if len(khoi_df) > 0:
             bar_w = min(r["pct_ac"], 100)
             rows += f"""
 <tr>
-<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{r['name']}">{r['name']}</td>
+<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600;" title="{r['name']}">{r['name']}</td>
 <td class="num">{int(r['hc']):,}</td>
 <td class="num">{int(r['ac']):,}</td>
-<td class="num" style="font-weight:600">{r['pct_ac']:.1f}%</td>
-<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['NAVY']};"></div></div></td>
+<td class="num" style="font-weight:700; color:{BRAND['BLUE']}">{r['pct_ac']:.1f}%</td>
+<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['BLUE']};"></div></div></td>
 <td class="num {dc}">{ds}{r['delta_pct']:.1f}pp</td>
 <td class="num {dc}">{ds}{int(r['delta_abs']):,}</td>
 </tr>"""
@@ -688,10 +713,10 @@ if len(khoi_df) > 0:
         else: tdc, tds = "neutral", ""
         rows += f"""
 <tr class="total-row">
-<td><strong>TỔNG</strong></td>
+<td>TỔNG CỘNG</td>
 <td class="num">{t_hc:,}</td>
 <td class="num">{t_ac:,}</td>
-<td class="num" style="font-weight:700">{t_pct_ac:.1f}%</td>
+<td class="num">{t_pct_ac:.1f}%</td>
 <td></td>
 <td class="num {tdc}">{tds}{t_dpct:.1f}pp</td>
 <td class="num {tdc}">{tds}{t_dabs:,}</td>
@@ -700,7 +725,7 @@ if len(khoi_df) > 0:
         st.markdown(f"""
 <table class="ibcs-table">
 <thead><tr>
-<th>Khối</th><th class="num">HC</th><th class="num">Active</th><th class="num">%</th>
+<th>Khối</th><th class="num">HC</th><th class="num">Đã tham gia</th><th class="num">%</th>
 <th style="min-width:80px"></th><th class="num">Δ%</th><th class="num">Δ Abs</th>
 </tr></thead>
 <tbody>{rows}</tbody>
@@ -716,7 +741,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # 11. SECTION — CHI TIẾT PHÂN BỔ (DRILL-DOWN TABLE)
 # ═══════════════════════════════════════════════════════════════════════════
 st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-st.markdown("<h3>CHI TIẾT PHÂN BỔ (DRILL-DOWN TABLE)</h3>", unsafe_allow_html=True)
+st.markdown("<h3>CHI TIẾT PHÂN BỔ BẢNG THI ĐUA</h3>", unsafe_allow_html=True)
 
 breakdown_level = st.selectbox(
     "Phân tích theo cấp:",
@@ -757,14 +782,14 @@ if len(bd) > 0:
         disp = " › ".join(name_parts) if name_parts else "Chưa xác định"
         rows += f"""
 <tr>
-<td class="num" style="color:#aaa; font-size:0.7rem">{idx+1}</td>
-<td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{disp}">{disp}</td>
+<td class="num" style="color:{BRAND['MUTED']}; font-size:0.75rem; font-weight:700;">{idx+1}</td>
+<td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;" title="{disp}">{disp}</td>
 <td class="num">{int(r['hc']):,}</td>
 <td class="num">{int(r['ac']):,}</td>
-<td class="num" style="color:#888">{int(r['pending']):,}</td>
-<td class="num" style="font-weight:600">{r['pct_ac']:.1f}%</td>
-<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['NAVY']};"></div></div></td>
-<td class="num" style="color:#888">{r['pct_py']:.1f}%</td>
+<td class="num" style="color:{BRAND['ORANGE']}; font-weight:600;">{int(r['pending']):,}</td>
+<td class="num" style="font-weight:700; color:{BRAND['BLUE']}">{r['pct_ac']:.1f}%</td>
+<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['BLUE']};"></div></div></td>
+<td class="num" style="color:{BRAND['MUTED']}">{r['pct_py']:.1f}%</td>
 <td class="num {dc}">{ds}{r['delta_pct']:.1f}pp</td>
 <td class="num {dc}">{ds}{int(r['delta_abs']):,}</td>
 </tr>"""
@@ -779,13 +804,13 @@ if len(bd) > 0:
     rows += f"""
 <tr class="total-row">
 <td></td>
-<td><strong>TỔNG CỘNG</strong></td>
+<td>TỔNG CỘNG</td>
 <td class="num">{t_hc:,}</td>
 <td class="num">{t_ac:,}</td>
-<td class="num" style="color:#888">{t_pending:,}</td>
-<td class="num" style="font-weight:700">{t_pct_ac:.1f}%</td>
+<td class="num" style="color:{BRAND['ORANGE']}">{t_pending:,}</td>
+<td class="num">{t_pct_ac:.1f}%</td>
 <td></td>
-<td class="num" style="color:#888">{t_pct_py:.1f}%</td>
+<td class="num" style="color:{BRAND['MUTED']}">{t_pct_py:.1f}%</td>
 <td class="num {tdc}">{tds}{t_dpct:.1f}pp</td>
 <td class="num {tdc}">{tds}{t_dabs:,}</td>
 </tr>"""
@@ -798,8 +823,8 @@ if len(bd) > 0:
 <th class="num" style="width:30px">#</th>
 <th>{breakdown_level}</th>
 <th class="num">HC</th>
-<th class="num">Active</th>
-<th class="num">Chưa</th>
+<th class="num">Đã tham gia</th>
+<th class="num">Chưa tham gia</th>
 <th class="num">% AC</th>
 <th style="min-width:100px"></th>
 <th class="num">% PY</th>
@@ -848,14 +873,14 @@ if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
         zmin=0, zmax=100,
         text=[[f"{int(mx.iloc[i]['ac'])}/{int(mx.iloc[i]['hc'])}<br><b>{mx.iloc[i]['pct']:.0f}%</b>"
                 for i in range(len(mx))]],
-        texttemplate="%{text}", textfont=dict(size=10, family="Inter"),
-        hovertemplate="<b>%{x}</b><br>Đã làm: %{z:.1f}%<extra></extra>",
-        colorbar=dict(title=dict(text="% Hoàn thành", font=dict(size=10)),
-                      thickness=12, len=0.7, tickfont=dict(size=9)),
+        texttemplate="%{text}", textfont=dict(size=10, family="Inter", color="#fff", weight="bold"),
+        hovertemplate="<b>%{x}</b><br>Đã tham gia: %{z:.1f}%<extra></extra>",
+        colorbar=dict(title=dict(text="% Hoàn thành", font=dict(size=11, color=BRAND["NAVY"], weight="bold")),
+                      thickness=12, len=0.8, tickfont=dict(size=10, color=BRAND["NAVY"])),
     ))
-    fig_mat.update_layout(**ibcs_layout(height=200, margin=dict(l=180, r=40, t=20, b=60)))
-    fig_mat.update_xaxes(side="top", tickangle=-25, tickfont=dict(size=10))
-    fig_mat.update_yaxes(tickfont=dict(size=10))
+    fig_mat.update_layout(**ibcs_layout(height=220, margin=dict(l=180, r=40, t=20, b=60)))
+    fig_mat.update_xaxes(side="top", tickangle=-25, tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
+    fig_mat.update_yaxes(tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
     st.plotly_chart(fig_mat, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -865,8 +890,12 @@ if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
 # ═══════════════════════════════════════════════════════════════════════════
 st.markdown(f"""
 <div class="report-footer">
-<strong>GHN EES 2026</strong> · Survey Progress Dashboard ·
-Built with IBCS standards · Developed by <b>EX Team</b> ·
-Last render: {now_str}
+  <div>
+    <strong style="color:{BRAND['NAVY']}">GHN EES 2026</strong> · Survey Progress Dashboard <br>
+    Built with IBCS standards · Developed by <b>EX Team</b>
+  </div>
+  <div>
+    Last render: {now_str}
+  </div>
 </div>
 """, unsafe_allow_html=True)
