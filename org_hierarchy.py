@@ -103,6 +103,9 @@ KHOI_TO_DEPTS = {
     "Phòng Vận Tải Xuyên Biên Giới": [
         "Phòng Vận Tải Xuyên Biên Giới",
     ],
+    "Phòng Công Nghệ & Sản Phẩm Giao Hàng Nặng (GXT)": [
+        "Phòng Công Nghệ & Sản Phẩm Giao Hàng Nặng",
+    ],
 }
 
 # Thứ tự hiển thị Khối trong dropdown / charts
@@ -164,7 +167,11 @@ def resolve_vung(vung_input):
     """Chuẩn hóa tên Vùng về canonical (hoặc None)."""
     if vung_input is None or str(vung_input).strip() == "":
         return None
-    n = _norm(vung_input)
+    
+    vi = str(vung_input).strip()
+    vi = vi.replace("Cụm Kho Trung Chuyển ", "").replace("KTC ", "").replace("TTTC ", "")
+    n = _norm(vi)
+    
     for v in VUNG_LIST:
         if _norm(v) == n or n in _norm(v) or _norm(v) in n:
             return v

@@ -163,16 +163,17 @@ h1, h2, h3, h4 {{ color:{BRAND['NAVY']}!important; font-weight:800!important; le
 # ═══════════════════════════════════════════════════════════════════════════
 def ibcs_layout(**kwargs):
     base = dict(
-        paper_bgcolor="white", plot_bgcolor="white",
-        font=dict(family="Inter, sans-serif", size=11, color=BRAND["TEXT"]),
+        paper_bgcolor="white", plot_bgcolor="#FEFEFE",
+        font=dict(family="Inter, sans-serif", size=12, color=BRAND["TEXT"]),
         margin=dict(l=50, r=20, t=30, b=40),
-        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor="#999", zerolinewidth=1,
-                   tickfont=dict(size=10, color=BRAND["MUTED"])),
-        yaxis=dict(showgrid=True, gridcolor=BRAND["GRID"], gridwidth=1,
-                   zeroline=True, zerolinecolor="#999", zerolinewidth=1,
-                   tickfont=dict(size=10, color=BRAND["MUTED"])),
+        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor="#CCC", zerolinewidth=1,
+                   tickfont=dict(size=11, color=BRAND["MUTED"])),
+        yaxis=dict(showgrid=True, gridcolor="#F0F0F0", gridwidth=1,
+                   zeroline=True, zerolinecolor="#CCC", zerolinewidth=1,
+                   tickfont=dict(size=11, color=BRAND["MUTED"])),
         showlegend=False,
-        hoverlabel=dict(bgcolor="white", font_size=11, font_family="Inter"),
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Inter",
+                        bordercolor=BRAND["BORDER"]),
     )
     base.update(kwargs); return base
 
@@ -191,7 +192,7 @@ CANDIDATES = {
     "timestamp": ["timestamp","thoigian","thoigiandanhdau","submissiondate","submittime",
                   "daterecorded","ngaynop","ngaykhaosat","ngay","date","time"],
     "division":  ["khoi","khoivn","divisionnamevn","division","divisionname"],
-    "region":    ["vung","region","buname","bu","mien","khuvuc","area"],
+    "region":    ["vung","region","sectionnamevn","sectionname","section","buname","bu","mien","khuvuc","area"],
     "department":["phongban","departmentnamevn","department","departmentname","dept","phong"],
     "team":      ["team","teamnamevn","teamname","nhom"],
     "employee_id":["employeeid","idnhanvien","id","manhanvien","mnv","staffid"],
@@ -205,7 +206,7 @@ def find_col(df, key):
         cn = _norm(cand)
         if not cn: continue
         for nc, orig in nmap.items():
-            if cn in nc or nc in cn: return orig
+            if (cn in nc or nc in cn) and len(nc) < 40: return orig
     return None
 
 
@@ -252,29 +253,10 @@ def _canon_vung(row):
 
 @st.cache_data(ttl=600, show_spinner="Đang tải Workforce Data…")
 def load_workforce():
-    url = _get_url("workforce")
-    if not url:
-        raise ValueError("Workforce URL chưa được cấu hình — sửa secrets.toml hoặc FALLBACK_URLS.")
-
-    conn = st.connection("workforce", type=GSheetsConnection)
-    primary_ws = WORKSHEET_NAMES.get("workforce", "Workforce Data")
-    df = None
     try:
-        df = conn.read(spreadsheet=url, worksheet=primary_ws)
-    except Exception:
-        pass
-
-    if df is None or len(df) == 0:
-        try:
-            df = conn.read(spreadsheet=url)
-        except Exception as e:
-            raise ValueError(f"Không kết nối được Workforce sheet: {str(e)[:200]}")
-
-    if df is None or len(df) == 0:
-        raise ValueError(
-            f"Sheet '{primary_ws}' trống hoặc không đọc được. "
-            "Kiểm tra tên tab sheet trong Google Sheets và sửa WORKSHEET_NAMES['workforce'] trong app.py."
-        )
+        df = pd.read_csv("./data/workforce.csv", low_memory=False)
+    except Exception as e:
+        raise ValueError(f"Không đọc được file local Workforce: {e}")
 
     df = df.dropna(how="all")
     rename_map = {}
@@ -294,33 +276,23 @@ def load_workforce():
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_survey(group_name):
-    conn_name = f"survey_{group_name}"
-    url = _get_url(conn_name)
-    if not url:
-        return pd.DataFrame(), f"Chưa có URL cho nhóm {group_name}."
-    try:
-        conn = st.connection(conn_name, type=GSheetsConnection)
-        primary_ws = WORKSHEET_NAMES.get(conn_name, "Form Responses 1")
-        df = None
-
+    if group_name == "2B":
         try:
-            df = conn.read(spreadsheet=url, worksheet=primary_ws)
-        except Exception:
-            pass
-
-        if df is None or len(df) == 0:
-            try:
-                df = conn.read(spreadsheet=url)
-            except Exception:
-                pass
-
-        if df is None:
-            return pd.DataFrame(), f"Không đọc được {conn_name}."
-    except Exception as e:
-        return pd.DataFrame(), f"Không kết nối được {conn_name}: {str(e)[:150]}"
+            df = pd.read_excel(r"./data/EES-2026-Demo-2B (Responses).xlsx")
+        except Exception as e:
+            return pd.DataFrame(), f"Không đọc được file local 2B: {e}"
+    else:
+        # Ngắt các kết nối khác tạm thời
+        return pd.DataFrame(), None
 
     df = df.dropna(how="all")
     if len(df) == 0: return df, None
+
+    col_pb_orig = next((c for c in df.columns if "Phòng Ban bạn" in str(c)), None)
+    col_vung_orig = next((c for c in df.columns if "Bạn thuộc Vùng" in str(c)), None)
+    col_ktc_orig = next((c for c in df.columns if "KCT/TTCT" in str(c)), None)
+    col_gxt_orig = next((c for c in df.columns if "bộ phận nào" in str(c) and "Warehouse" not in str(c)), None)
+    col_khl_orig = next((c for c in df.columns if "Warehouse" in str(c)), None)
 
     rename_map = {}
     for key in ["timestamp","division","region","department","team","employee_id"]:
@@ -336,6 +308,46 @@ def load_survey(group_name):
     for c in ["division","region","department","team"]:
         if c not in df.columns: df[c] = None
         else: df[c] = df[c].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
+
+    if group_name == "2B":
+        # 2B Custom Mapping for Workforce alignment
+        col_pb = rename_map.get(col_pb_orig, col_pb_orig)
+        col_vung = rename_map.get(col_vung_orig, col_vung_orig)
+        col_ktc = rename_map.get(col_ktc_orig, col_ktc_orig)
+        col_gxt = rename_map.get(col_gxt_orig, col_gxt_orig)
+        col_khl = rename_map.get(col_khl_orig, col_khl_orig)
+        
+        def _parse_2b(row):
+            pb = str(row[col_pb]).strip() if col_pb and pd.notna(row[col_pb]) else ""
+            div = row.get("division", None)
+            dept = row.get("department", None)
+            reg = row.get("region", None)
+            team = row.get("team", None)
+            
+            if "Vùng" in pb and pb != "Warehouse/Fulfillment":
+                div = "Khối Thị Trường"
+                dept = "Vùng"
+                reg = row[col_vung] if col_vung and pd.notna(row[col_vung]) else reg
+            elif "Kho Trung Chuyển" in pb:
+                div = "Khối Thị Trường"
+                dept = "Kho Trung Chuyển"
+                ktc_val = str(row[col_ktc]).strip() if col_ktc and pd.notna(row[col_ktc]) else ""
+                if ktc_val:
+                    reg = ktc_val.replace("KTC ", "").replace("TTTC ", "").strip()
+            elif "Giao Hàng Nặng" in pb:
+                dept = "Phòng Công Nghệ & Sản Phẩm Giao Hàng Nặng"
+                team = row[col_gxt] if col_gxt and pd.notna(row[col_gxt]) else team
+            elif "Warehouse" in pb:
+                div = "Phòng Dịch Vụ Kho Vận (Warehouse/ Fulfillment)"
+                dept = "Phòng Dịch Vụ Kho Vận"
+                team = row[col_khl] if col_khl and pd.notna(row[col_khl]) else team
+            
+            return pd.Series({"division": div, "department": dept, "region": reg, "team": team})
+
+        if col_pb:
+            mapped = df.apply(_parse_2b, axis=1)
+            for c in ["division", "department", "region", "team"]:
+                df[c] = mapped[c]
 
     df["khoi_canonical"] = df.apply(_canon_khoi, axis=1)
     df["vung_canonical"] = df.apply(_canon_vung, axis=1)
@@ -585,36 +597,79 @@ if df_sv_f["timestamp"].notna().any():
     daily["date_lbl"] = daily["_date"].apply(lambda d: d.strftime("%d/%m"))
 
     first_pct, last_pct = daily["pct"].iloc[0], daily["pct"].iloc[-1]
+    peak_idx = daily["new_users"].idxmax()
+    peak_day = daily.loc[peak_idx, "date_lbl"]
+    peak_val = int(daily.loc[peak_idx, "new_users"])
     trend_msg = (f'Tỷ lệ tham gia tăng từ <b>{first_pct:.1f}%</b> lên <b>{last_pct:.1f}%</b> '
-                 f'(+{last_pct-first_pct:.1f}pp) trong {len(daily)} kỳ báo cáo.')
+                 f'(+{last_pct-first_pct:.1f}pp) trong {len(daily)} kỳ báo cáo. '
+                 f'Ngày cao điểm: <b>{peak_day}</b> với {peak_val} lượt.')
     st.markdown(f'<p class="section-msg">{trend_msg}</p>', unsafe_allow_html=True)
 
+    # Color bars by intensity
+    max_users = daily["new_users"].max() if daily["new_users"].max() > 0 else 1
+    bar_colors = [f"rgba(0, 111, 173, {0.25 + 0.6 * (v / max_users)})" for v in daily["new_users"]]
+
     fig_t = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # --- Gradient bars ---
     fig_t.add_trace(go.Bar(
         x=daily["date_lbl"], y=daily["new_users"],
-        name="User mới", marker_color=BRAND["PY"], marker_line=dict(width=0),
-        opacity=0.6,
+        name="User mới", marker_color=bar_colors,
+        marker_line=dict(width=0),
         hovertemplate="<b>%{x}</b><br>User mới: %{y:,}<extra></extra>",
     ), secondary_y=False)
+
+    # --- Area fill under line ---
+    fig_t.add_trace(go.Scatter(
+        x=daily["date_lbl"], y=daily["pct"],
+        name="% Hoàn thành", mode="lines",
+        line=dict(color="rgba(255,82,0,0)", width=0),
+        fill="tozeroy", fillcolor="rgba(255, 82, 0, 0.07)",
+        hoverinfo="skip", showlegend=False,
+    ), secondary_y=True)
+
+    # --- Main line ---
+    # Smart labels: show only first, last, peak, and every ~5th point
+    n_pts = len(daily)
+    show_indices = {0, n_pts - 1, peak_idx}
+    step = max(1, n_pts // 5)
+    for i in range(0, n_pts, step):
+        show_indices.add(i)
+    text_labels = [f"{v:.1f}%" if i in show_indices else "" for i, v in enumerate(daily["pct"])]
+
     fig_t.add_trace(go.Scatter(
         x=daily["date_lbl"], y=daily["pct"],
         name="% Hoàn thành", mode="lines+markers+text",
-        line=dict(color=BRAND["AC"], width=3),
-        marker=dict(size=6, color=BRAND["AC"]),
-        text=[f"{v:.1f}%" for v in daily["pct"]],
-        textposition="top center", textfont=dict(size=10, color=BRAND["AC"], weight="bold"),
+        line=dict(color=BRAND["ORANGE"], width=3, shape="spline"),
+        marker=dict(size=8, color=BRAND["ORANGE"], line=dict(width=2, color="white")),
+        text=text_labels,
+        textposition="top center", textfont=dict(size=11, color=BRAND["ORANGE"]),
         hovertemplate="<b>%{x}</b><br>Hoàn thành: %{y:.1f}%<extra></extra>",
     ), secondary_y=True)
 
-    fig_t.update_layout(
-        **ibcs_layout(height=400, margin=dict(l=50, r=50, t=20, b=50), showlegend=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11, color=BRAND["NAVY"])),
-        bargap=0.3,
+    # --- Peak annotation ---
+    fig_t.add_annotation(
+        x=peak_day, y=peak_val,
+        text=f"🔥 Peak: {peak_val}",
+        showarrow=True, arrowhead=2, arrowsize=1, arrowcolor=BRAND["ORANGE"],
+        ax=0, ay=-35, font=dict(size=11, color=BRAND["ORANGE"]),
+        bgcolor="rgba(255,255,255,0.9)", bordercolor=BRAND["ORANGE"], borderwidth=1,
+        borderpad=4,
+        secondary_y=False,
     )
-    fig_t.update_xaxes(type="category", tickangle=-45, tickfont=dict(color=BRAND["NAVY"]))
-    fig_t.update_yaxes(title_text="User mới (người)", secondary_y=False, showgrid=False, title_font=dict(color=BRAND["NAVY"]))
+
+    fig_t.update_layout(
+        **ibcs_layout(height=420, margin=dict(l=50, r=50, t=40, b=55), showlegend=True),
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1,
+                    font=dict(size=11, color=BRAND["NAVY"]),
+                    bgcolor="rgba(255,255,255,0.8)"),
+        bargap=0.2,
+    )
+    fig_t.update_xaxes(type="category", tickangle=-45, tickfont=dict(color=BRAND["NAVY"], size=10))
+    fig_t.update_yaxes(title_text="User mới (người)", secondary_y=False,
+                       showgrid=False, title_font=dict(color=BRAND["NAVY"], size=11))
     fig_t.update_yaxes(title_text="Tỷ lệ Hoàn thành (%)", secondary_y=True, range=[0, 105],
-                        showgrid=True, gridcolor=BRAND["GRID"], title_font=dict(color=BRAND["NAVY"]))
+                        showgrid=True, gridcolor="#F0F0F0", title_font=dict(color=BRAND["NAVY"], size=11))
     st.plotly_chart(fig_t, use_container_width=True)
 else:
     st.info("Chưa có cột timestamp hợp lệ trong data survey.")
@@ -657,33 +712,87 @@ if len(khoi_df) > 0:
     col_chart, col_tbl = st.columns([3, 2])
 
     with col_chart:
+        # --- Conditional color by tier ---
+        def tier_color(pct):
+            if pct >= 75: return BRAND["POS"]      # green
+            if pct >= 50: return BRAND["AC"]        # blue
+            if pct >= 25: return BRAND["ORANGE"]    # orange
+            return "#D32F2F"                         # red
+
+        colors_ac = [tier_color(p) for p in khoi_df["pct_ac"]]
+        avg_pct = khoi_df["pct_ac"].mean()
+
+        # Normalize marker size by HC (min 10, max 22)
+        hc_min, hc_max = khoi_df["hc"].min(), khoi_df["hc"].max()
+        if hc_max > hc_min:
+            marker_sizes = [10 + 12 * (h - hc_min) / (hc_max - hc_min) for h in khoi_df["hc"]]
+        else:
+            marker_sizes = [14] * len(khoi_df)
+
         fig_k = go.Figure()
+
+        # --- PY reference bar (light background) ---
         fig_k.add_trace(go.Bar(
             y=khoi_df["name"], x=khoi_df["pct_py"], orientation="h",
             name=f"Kỳ trước ({yesterday.strftime('%d/%m')})",
-            marker_color=BRAND["PY"], marker_line=dict(width=0),
-            text=[f"{v:.1f}%" for v in khoi_df["pct_py"]],
-            textposition="outside", textfont=dict(size=10, color=BRAND["MUTED"]),
+            marker_color="rgba(200,200,200,0.35)", marker_line=dict(width=0),
             hovertemplate="<b>%{y}</b><br>Kỳ trước: %{x:.1f}%<extra></extra>",
         ))
+
+        # --- Lollipop stems (thin bars for AC) ---
         fig_k.add_trace(go.Bar(
             y=khoi_df["name"], x=khoi_df["pct_ac"], orientation="h",
             name=f"Hiện tại ({today.strftime('%d/%m')})",
-            marker_color=BRAND["AC"], marker_line=dict(width=0),
-            text=[f"{v:.1f}%" for v in khoi_df["pct_ac"]],
-            textposition="outside", textfont=dict(size=10, color=BRAND["NAVY"], weight="bold"),
+            marker_color=[c.replace(")", ",0.6)").replace("rgb", "rgba") if "rgba" not in c
+                         else c for c in colors_ac],
+            marker_line=dict(width=0), width=0.3,
             hovertemplate="<b>%{y}</b><br>Hiện tại: %{x:.1f}%<extra></extra>",
         ))
+
+        # --- Lollipop dots ---
+        rank_labels = []
+        sorted_desc = khoi_df.sort_values("pct_ac", ascending=False)
+        rank_map = {name: i+1 for i, name in enumerate(sorted_desc["name"])}
+        for _, r in khoi_df.iterrows():
+            rank = rank_map[r["name"]]
+            medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+            medal = medals.get(rank, "")
+            rank_labels.append(f"  {r['pct_ac']:.1f}% {medal}")
+
+        fig_k.add_trace(go.Scatter(
+            y=khoi_df["name"], x=khoi_df["pct_ac"],
+            mode="markers+text",
+            marker=dict(size=marker_sizes, color=colors_ac,
+                       line=dict(width=2, color="white")),
+            text=rank_labels,
+            textposition="middle right",
+            textfont=dict(size=11, color=BRAND["NAVY"]),
+            hovertemplate="<b>%{y}</b><br>%{x:.1f}%<extra></extra>",
+            showlegend=False,
+        ))
+
+        # --- Average reference line ---
+        fig_k.add_vline(
+            x=avg_pct, line_dash="dot", line_color=BRAND["ORANGE"], line_width=2,
+            annotation_text=f"TB: {avg_pct:.1f}%",
+            annotation_position="top",
+            annotation_font=dict(size=10, color=BRAND["ORANGE"]),
+        )
+
         fig_k.update_layout(
             **ibcs_layout(
-                height=max(320, len(khoi_df) * 45 + 80),
-                margin=dict(l=220, r=60, t=10, b=30),
-                barmode="group", bargap=0.25, bargroupgap=0.05, showlegend=True,
+                height=max(360, len(khoi_df) * 48 + 80),
+                margin=dict(l=240, r=100, t=30, b=30),
+                barmode="overlay", bargap=0.3, showlegend=True,
             ),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=11, color=BRAND["NAVY"])),
+            legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="left", x=0,
+                       font=dict(size=11, color=BRAND["NAVY"]),
+                       bgcolor="rgba(255,255,255,0.8)"),
         )
-        fig_k.update_xaxes(range=[0, 105], dtick=25, showgrid=True, gridcolor=BRAND["GRID"])
-        fig_k.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
+        fig_k.update_xaxes(range=[0, max(110, khoi_df["pct_ac"].max() + 20)],
+                           dtick=25, showgrid=True, gridcolor="#F0F0F0",
+                           title_text="% Hoàn thành", title_font=dict(size=11, color=BRAND["NAVY"]))
+        fig_k.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"]))
         st.plotly_chart(fig_k, use_container_width=True)
 
     with col_tbl:
@@ -843,15 +952,15 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 12. SECTION — MATRIX KHỐI THỊ TRƯỜNG × VÙNG (chỉ show khi có data)
+# 12. SECTION — ĐƯỜNG ĐUA VÙNG (KHỐI THỊ TRƯỜNG)
 # ═══════════════════════════════════════════════════════════════════════════
 df_ktt_wf = df_wf_f[df_wf_f["khoi_canonical"] == KHOI_THI_TRUONG]
 df_ktt_sv = df_sv_f[df_sv_f["khoi_canonical"] == KHOI_THI_TRUONG]
 
 if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
     st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-    st.markdown("<h3>MATRIX · KHỐI THỊ TRƯỜNG × VÙNG</h3>", unsafe_allow_html=True)
-    st.markdown('<p class="section-msg">Heatmap tỷ lệ hoàn thành theo Vùng (chỉ áp dụng cho Khối Thị Trường)</p>',
+    st.markdown("<h3>ĐƯỜNG ĐUA TỶ LỆ HOÀN THÀNH THEO VÙNG</h3>", unsafe_allow_html=True)
+    st.markdown('<p class="section-msg">Bảng xếp hạng tiến độ tham gia khảo sát của các Vùng (thuộc Khối Thị Trường)</p>',
                 unsafe_allow_html=True)
 
     wf_v = df_ktt_wf.groupby("vung_canonical").size().rename("hc")
@@ -860,28 +969,97 @@ if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
     mx["pct"] = (mx["ac"] / mx["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
     mx = mx.reset_index()
     mx = mx.rename(columns={mx.columns[0]: "vung"})
-    order_map = {v: i for i, v in enumerate(VUNG_LIST)}
-    mx["_ord"] = mx["vung"].map(lambda v: order_map.get(v, 999))
-    mx = mx.sort_values("_ord").reset_index(drop=True)
-    mx = mx[mx["vung"].notna() & (mx["vung"].astype(str).str.strip() != "")]
+    mx = mx[mx["vung"].isin(VUNG_LIST)]
+    
+    # Split active (>0%) vs inactive (0%) regions
+    mx_active = mx[mx["pct"] > 0].sort_values("pct", ascending=True).reset_index(drop=True)
+    mx_zero = mx[mx["pct"] == 0].sort_values("hc", ascending=True).reset_index(drop=True)
+    mx_sorted = pd.concat([mx_zero, mx_active], ignore_index=True)
 
-    fig_mat = go.Figure(data=go.Heatmap(
-        z=[mx["pct"].values],
-        x=mx["vung"], y=[KHOI_THI_TRUONG],
-        colorscale=[[0.0, "#FFFFFF"], [0.25, "#FFE0CC"], [0.5, "#FF9966"],
-                    [0.75, BRAND["ORANGE"]], [1.0, BRAND["NAVY"]]],
-        zmin=0, zmax=100,
-        text=[[f"{int(mx.iloc[i]['ac'])}/{int(mx.iloc[i]['hc'])}<br><b>{mx.iloc[i]['pct']:.0f}%</b>"
-                for i in range(len(mx))]],
-        texttemplate="%{text}", textfont=dict(size=10, family="Inter", color="#fff", weight="bold"),
-        hovertemplate="<b>%{x}</b><br>Đã tham gia: %{z:.1f}%<extra></extra>",
-        colorbar=dict(title=dict(text="% Hoàn thành", font=dict(size=11, color=BRAND["NAVY"], weight="bold")),
-                      thickness=12, len=0.8, tickfont=dict(size=10, color=BRAND["NAVY"])),
+    n_total = len(mx_sorted)
+    n_active = len(mx_active)
+
+    # --- Race lane colors ---
+    race_colors = []
+    medals_map = {}
+    if n_active > 0:
+        ranked = mx_active.sort_values("pct", ascending=False).reset_index(drop=True)
+        for i, (_, r) in enumerate(ranked.iterrows()):
+            medals_map[r["vung"]] = i + 1
+
+    for _, r in mx_sorted.iterrows():
+        if r["pct"] == 0:
+            race_colors.append("rgba(200,200,200,0.4)")
+        else:
+            rank = medals_map.get(r["vung"], 99)
+            if rank == 1:   race_colors.append("#FFB800")   # gold
+            elif rank == 2: race_colors.append("#A0A0A0")   # silver
+            elif rank == 3: race_colors.append("#CD7F32")   # bronze
+            else:           race_colors.append(BRAND["AC"])
+
+    # --- Labels with medal emoji ---
+    race_labels = []
+    for _, r in mx_sorted.iterrows():
+        rank = medals_map.get(r["vung"], 0)
+        medal = {1: " 🥇", 2: " 🥈", 3: " 🥉"}.get(rank, "")
+        race_labels.append(f"{r['pct']:.1f}%  ({int(r['ac']):,}/{int(r['hc']):,}){medal}")
+
+    fig_race = go.Figure()
+
+    # --- Background lane bars (full width, very light) ---
+    fig_race.add_trace(go.Bar(
+        y=mx_sorted["vung"], x=[100] * n_total, orientation="h",
+        marker_color="rgba(240,240,240,0.5)", marker_line=dict(width=0),
+        hoverinfo="skip", showlegend=False,
     ))
-    fig_mat.update_layout(**ibcs_layout(height=220, margin=dict(l=180, r=40, t=20, b=60)))
-    fig_mat.update_xaxes(side="top", tickangle=-25, tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
-    fig_mat.update_yaxes(tickfont=dict(size=11, color=BRAND["NAVY"], weight="bold"))
-    st.plotly_chart(fig_mat, use_container_width=True)
+
+    # --- Main race bars ---
+    fig_race.add_trace(go.Bar(
+        y=mx_sorted["vung"], x=mx_sorted["pct"], orientation="h",
+        marker_color=race_colors, marker_line=dict(width=0),
+        text=race_labels,
+        textposition="outside", 
+        textfont=dict(size=11, color=BRAND["NAVY"]),
+        hovertemplate="<b>%{y}</b><br>Hoàn thành: %{x:.1f}%<br>Đã nộp: %{customdata[0]:,}/%{customdata[1]:,}<extra></extra>",
+        customdata=list(zip(mx_sorted["ac"], mx_sorted["hc"]))
+    ))
+
+    # --- Average line ---
+    avg_vung = mx_sorted["pct"].mean()
+    fig_race.add_vline(
+        x=avg_vung, line_dash="dot", line_color=BRAND["ORANGE"], line_width=2,
+        annotation_text=f"TB: {avg_vung:.1f}%",
+        annotation_position="top",
+        annotation_font=dict(size=10, color=BRAND["ORANGE"]),
+    )
+
+    # --- Separator annotation between active/inactive ---
+    if n_active > 0 and len(mx_zero) > 0:
+        separator_y = len(mx_zero) - 0.5
+        fig_race.add_hline(
+            y=separator_y, line_dash="dash", line_color=BRAND["BORDER"], line_width=1,
+        )
+        fig_race.add_annotation(
+            x=50, y=separator_y,
+            text="── Chưa có response ──────── Đã tham gia ──",
+            showarrow=False, font=dict(size=9, color=BRAND["MUTED"]),
+            bgcolor="white", borderpad=3,
+        )
+
+    fig_race.update_layout(
+        **ibcs_layout(
+            height=max(450, n_total * 38 + 80),
+            margin=dict(l=180, r=120, t=30, b=40),
+            barmode="overlay", bargap=0.22, showlegend=False
+        )
+    )
+    fig_race.update_xaxes(
+        range=[0, max(115, mx_sorted["pct"].max() + 25)],
+        dtick=25, showgrid=True, gridcolor="#F0F0F0",
+        title_text="% Hoàn thành", title_font=dict(size=11, color=BRAND["NAVY"])
+    )
+    fig_race.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"]))
+    st.plotly_chart(fig_race, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
