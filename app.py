@@ -1,6 +1,7 @@
 """
 GHN EES 2026 — Survey Progress Dashboard
 Logic: Workforce có cột survey_group → filter HC đúng nhóm → tính tỷ lệ response
+Features: Language toggle (VI/EN), no BU filter
 """
 import streamlit as st
 import pandas as pd
@@ -32,17 +33,137 @@ C = {
     "red":    "#C0392B", "red2":   "#FDECEA",
 }
 
-GROUP_LABELS = {
-    "2A": "Nhóm Nhân viên Vận hành Kho",
-    "2B": "Nhóm Quản lý Tuyến đầu",
-    "3A": "Nhóm Nhân viên Văn phòng HO",
-    "3B": "Manager / Director HO",
+# ══════════════════════════════════════════════════════════════
+# LANGUAGE STRINGS
+# ══════════════════════════════════════════════════════════════
+LANG = {
+    "VI": {
+        "page_title":     "EES Race 2026",
+        "page_sub":       "Tiến độ tham gia khảo sát theo Division, Department và Section.",
+        "updated":        "Cập nhật lần cuối",
+        "refresh":        "Làm mới dữ liệu",
+        "only_active":    "Chỉ nhân sự đang làm (status = 1)",
+        "survey_group":   "Nhóm khảo sát",
+        "division_lbl":   "Division",
+        "dept_lbl":       "Department",
+        "section_lbl":    "Section / Vùng",
+        "date_range":     "Khoảng thời gian",
+        "sidebar_note":   "HC tính theo nhân sự có survey_group tương ứng.<br>Filter: Division → Department → Section.",
+        "viewing":        "Đang xem",
+        "kpi_hc":         "Tổng Nhân Sự",
+        "kpi_hc_sub":     "HC của nhóm đã chọn",
+        "kpi_done":       "Đã Tham Gia",
+        "kpi_done_sub":   "trên tổng HC",
+        "kpi_pending":    "Chưa Tham Gia",
+        "kpi_pending_sub":"HC − Response",
+        "kpi_today":      "Hôm Nay",
+        "kpi_today_sub":  "so với hôm qua",
+        "tab_div":        "Theo Division",
+        "tab_dept":       "Theo Department",
+        "tab_sec":        "Theo Section / Vùng",
+        "tab_trend":      "Xu hướng theo ngày",
+        "sec_div":        "Tiến độ theo Division",
+        "sec_dept":       "Tiến độ theo Department",
+        "sec_sec":        "Tiến độ theo Section / Vùng",
+        "sec_trend":      "Response theo ngày — tích lũy & mới",
+        "top_n_dept":     "Top N phòng ban",
+        "top_n_sec":      "Top N section",
+        "col_hc":         "HC",
+        "col_done":       "Đã nộp",
+        "col_pending":    "Chưa nộp",
+        "col_rate":       "Tỷ lệ",
+        "col_total":      "Tổng cộng",
+        "chart_pct":      "% Hoàn thành",
+        "chart_avg":      "TB",
+        "chart_new":      "Mới trong ngày",
+        "chart_cum":      "% Tích lũy",
+        "chart_new_y":    "Response mới / ngày",
+        "chart_cum_y":    "% Tích lũy",
+        "no_data":        "Không có dữ liệu",
+        "no_ts":          "Chưa có timestamp hợp lệ",
+        "divisions":      "divisions",
+        "departments":    "phòng ban",
+        "sections":       "sections",
+        "group_labels": {
+            "2A": "Nhóm Nhân viên Vận hành Kho",
+            "2B": "Nhóm Quản lý Tuyến đầu",
+            "3A": "Nhóm Nhân viên Văn phòng HO",
+            "3B": "Manager / Director HO",
+        },
+        "footer": "Báo cáo Tiến độ Khảo sát · EX Team",
+        "render": "Render",
+    },
+    "EN": {
+        "page_title":     "EES Race 2026",
+        "page_sub":       "Survey participation progress by Division, Department and Section.",
+        "updated":        "Last updated",
+        "refresh":        "Refresh data",
+        "only_active":    "Active employees only (status = 1)",
+        "survey_group":   "Survey group",
+        "division_lbl":   "Division",
+        "dept_lbl":       "Department",
+        "section_lbl":    "Section / Region",
+        "date_range":     "Date range",
+        "sidebar_note":   "HC is counted by matching survey_group.<br>Filter: Division → Department → Section.",
+        "viewing":        "Viewing",
+        "kpi_hc":         "Total Headcount",
+        "kpi_hc_sub":     "HC of selected groups",
+        "kpi_done":       "Participated",
+        "kpi_done_sub":   "of total HC",
+        "kpi_pending":    "Not Yet",
+        "kpi_pending_sub":"HC − Response",
+        "kpi_today":      "Today",
+        "kpi_today_sub":  "vs yesterday",
+        "tab_div":        "By Division",
+        "tab_dept":       "By Department",
+        "tab_sec":        "By Section / Region",
+        "tab_trend":      "Daily Trend",
+        "sec_div":        "Progress by Division",
+        "sec_dept":       "Progress by Department",
+        "sec_sec":        "Progress by Section / Region",
+        "sec_trend":      "Daily response — cumulative & new",
+        "top_n_dept":     "Top N departments",
+        "top_n_sec":      "Top N sections",
+        "col_hc":         "HC",
+        "col_done":       "Submitted",
+        "col_pending":    "Pending",
+        "col_rate":       "Rate",
+        "col_total":      "Total",
+        "chart_pct":      "% Completion",
+        "chart_avg":      "Avg",
+        "chart_new":      "New today",
+        "chart_cum":      "% Cumulative",
+        "chart_new_y":    "New responses / day",
+        "chart_cum_y":    "% Cumulative",
+        "no_data":        "No data available",
+        "no_ts":          "No valid timestamps found",
+        "divisions":      "divisions",
+        "departments":    "departments",
+        "sections":       "sections",
+        "group_labels": {
+            "2A": "Warehouse Operations Staff",
+            "2B": "Frontline Managers",
+            "3A": "HO Office Staff",
+            "3B": "HO Manager / Director",
+        },
+        "footer": "Survey Progress Dashboard · EX Team",
+        "render": "Render",
+    },
 }
-ALL_GROUPS = list(GROUP_LABELS.keys())
 
+ALL_GROUPS = ["2A", "2B", "3A", "3B"]
+
+# ══════════════════════════════════════════════════════════════
+# LANGUAGE STATE — phải init TRƯỚC khi render sidebar
+# ══════════════════════════════════════════════════════════════
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "VI"
+
+# ══════════════════════════════════════════════════════════════
+# CSS
+# ══════════════════════════════════════════════════════════════
 st.markdown(f"""
 <style>
-/* ── Custom Font ── */
 @font-face {{
   font-family: 'SVN-Helvetica Now';
   font-style: normal;
@@ -64,52 +185,27 @@ st.markdown(f"""
   font-display: swap;
   src: url('./app/static/fonts/SVN-HelveticaNowDisplay-Bold.ttf') format('truetype');
 }}
-
-/* ── Force Light Theme ── */
-html, body, [data-testid="stAppViewContainer"],
-[data-testid="stApp"], .stApp {{
-    background-color: {C['slate']} !important;
-    color: {C['text']} !important;
-    color-scheme: light !important;
+html,body,[data-testid="stAppViewContainer"],[data-testid="stApp"],.stApp {{
+    background-color:{C['slate']}!important;color:{C['text']}!important;color-scheme:light!important;
 }}
-[data-testid="stHeader"] {{
-    background-color: transparent !important;
-}}
-
-/* ── Base Typography ── */
-html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!important;color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
+[data-testid="stHeader"]{{background-color:transparent!important;}}
+html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!important;
+    color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
 .stApp{{background:{C['slate']};}}
 .block-container{{max-width:1320px;padding:0 2rem 3rem;}}
 #MainMenu,footer,header{{visibility:hidden;}}
 
-/* ── Sidebar Toggle Fix ── */
-[data-testid="stSidebar"][aria-expanded="false"] {{
-    margin-left: 0 !important;
-    min-width: 0 !important;
-    width: 0 !important;
-    overflow: hidden !important;
-}}
-[data-testid="collapsedControl"] {{
-    display: flex !important;
-    visibility: visible !important;
-    position: fixed !important;
-    top: 0.5rem !important;
-    left: 0.5rem !important;
-    z-index: 999999 !important;
-    color: {C['navy']} !important;
-    background: {C['bg']} !important;
-    border: 1px solid {C['border']} !important;
-    border-radius: 6px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-    padding: 4px !important;
-}}
-[data-testid="collapsedControl"] button {{
-    color: {C['navy']} !important;
-}}
-[data-testid="collapsedControl"] svg {{
-    fill: {C['navy']} !important;
-    stroke: {C['navy']} !important;
-}}
+/* Sidebar toggle */
+[data-testid="stSidebar"][aria-expanded="false"]{{
+    margin-left:0!important;min-width:0!important;width:0!important;overflow:hidden!important;}}
+[data-testid="collapsedControl"]{{
+    display:flex!important;visibility:visible!important;position:fixed!important;
+    top:.5rem!important;left:.5rem!important;z-index:999999!important;
+    color:{C['navy']}!important;background:{C['bg']}!important;
+    border:1px solid {C['border']}!important;border-radius:6px!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.1)!important;padding:4px!important;}}
+[data-testid="collapsedControl"] button{{color:{C['navy']}!important;}}
+[data-testid="collapsedControl"] svg{{fill:{C['navy']}!important;stroke:{C['navy']}!important;}}
 
 /* Sidebar */
 [data-testid="stSidebar"]{{background:{C['navy']};border-right:none;}}
@@ -118,43 +214,51 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 [data-testid="stSidebar"] .stCheckbox>label,
 [data-testid="stSidebar"] .stDateInput>label{{
     color:rgba(255,255,255,0.5)!important;font-size:.68rem!important;
-    font-weight:700!important;text-transform:uppercase!important;letter-spacing:.1em!important;
-}}
+    font-weight:700!important;text-transform:uppercase!important;letter-spacing:.1em!important;}}
 [data-testid="stSidebar"] [data-baseweb="select"] div,
 [data-testid="stSidebar"] [data-baseweb="input"] input{{
     background:rgba(255,255,255,0.08)!important;
-    border-color:rgba(255,255,255,0.12)!important;color:white!important;border-radius:4px!important;
-}}
+    border-color:rgba(255,255,255,0.12)!important;color:white!important;border-radius:4px!important;}}
 [data-testid="stSidebar"] .stButton>button{{
     background:{C['orange']}!important;color:white!important;border:none!important;
     border-radius:4px!important;font-family:'SVN-Helvetica Now',sans-serif!important;
-    font-size:.85rem!important;font-weight:700!important;letter-spacing:.12em!important;
-    text-transform:uppercase!important;padding:.55rem 1rem!important;width:100%!important;
-}}
+    font-size:.85rem!important;font-weight:700!important;letter-spacing:.08em!important;
+    text-transform:uppercase!important;padding:.55rem 1rem!important;width:100%!important;}}
 [data-testid="stSidebar"] .stButton>button:hover{{background:{C['orange2']}!important;}}
+
+/* Language toggle button group */
+.lang-wrap{{display:flex;gap:6px;margin-bottom:1.2rem;}}
+.lang-btn{{
+    flex:1;padding:7px 0;text-align:center;border-radius:4px;cursor:pointer;
+    font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;border:1px solid rgba(255,255,255,.2);
+    color:rgba(255,255,255,.5);background:rgba(255,255,255,.05);
+    transition:all .15s;user-select:none;
+}}
+.lang-btn.active{{
+    background:{C['orange']};border-color:{C['orange']};color:white;}}
+
 .sb-logo{{font-family:'SVN-Helvetica Now',sans-serif;font-size:1.5rem;font-weight:700;
     color:white!important;letter-spacing:-.02em;text-transform:uppercase;
-    padding:1.5rem 0 1rem;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:1.5rem;}}
+    padding:1.5rem 0 1rem;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:1rem;}}
 .sb-logo span{{color:{C['orange']};}}
-.sb-div{{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1.2rem 0;}}
+.sb-div{{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1rem 0;}}
 .sb-note{{font-size:.65rem;color:rgba(255,255,255,.3);line-height:1.7;margin-top:.5rem;}}
 
 /* Tabs */
 .stTabs [data-baseweb="tab-list"]{{background:transparent!important;
     border-bottom:2px solid {C['line']}!important;gap:0!important;padding:0!important;}}
 .stTabs [data-baseweb="tab"]{{
-    font-family:'SVN-Helvetica Now',sans-serif!important;font-size:.85rem!important;
-    font-weight:700!important;letter-spacing:.1em!important;text-transform:uppercase!important;
-    color:{C['muted']}!important;padding:.9rem 1.6rem!important;
+    font-family:'SVN-Helvetica Now',sans-serif!important;font-size:.82rem!important;
+    font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important;
+    color:{C['muted']}!important;padding:.85rem 1.5rem!important;
     border-bottom:3px solid transparent!important;margin-bottom:-2px!important;
-    transition:all .2s!important;background:transparent!important;
-}}
+    transition:all .2s!important;background:transparent!important;}}
 .stTabs [aria-selected="true"]{{color:{C['navy']}!important;border-bottom-color:{C['orange']}!important;}}
 .stTabs [data-baseweb="tab-panel"]{{padding:0!important;background:transparent!important;}}
 [data-testid="stSlider"]>label{{
     font-size:.72rem!important;font-weight:600!important;
-    text-transform:uppercase!important;letter-spacing:.1em!important;color:{C['sub']}!important;
-}}
+    text-transform:uppercase!important;letter-spacing:.1em!important;color:{C['sub']}!important;}}
 
 /* Header */
 .site-header{{background:{C['navy']};padding:0;margin:0 -2rem 2rem;
@@ -178,15 +282,6 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 .hdr-meta .ml{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.65rem;
     letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px;}}
 .hdr-meta .mv{{font-size:.85rem;font-weight:500;color:rgba(255,255,255,.75);}}
-
-/* Group Selector Pills (filter bar) */
-.filter-bar{{
-    background:{C['bg']};border:1px solid {C['border']};
-    padding:14px 20px;margin-bottom:20px;
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-}}
-.filter-label{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.72rem;
-    font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:{C['muted']};}}
 
 /* KPI Grid */
 .kpi-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
@@ -212,8 +307,7 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 .scard-head{{padding:16px 26px;border-bottom:1px solid {C['line']};
     display:flex;align-items:center;gap:.8rem;}}
 .scard-head .sh-t{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;
-    font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:{C['navy']};
-    white-space:nowrap;}}
+    font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:{C['navy']};white-space:nowrap;}}
 .scard-head .sh-r{{flex:1;height:1px;background:{C['line']};}}
 .scard-head .sh-meta{{font-size:.75rem;color:{C['muted']};white-space:nowrap;}}
 .scard-body{{padding:22px 26px;}}
@@ -229,12 +323,9 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 .dtbl tbody tr:hover{{background:{C['slate']};}}
 .dtbl td{{padding:9px 10px;vertical-align:middle;color:{C['text']};}}
 .dtbl td.r{{text-align:right;font-variant-numeric:tabular-nums;font-size:.82rem;}}
-.dtbl td.nm{{font-weight:500;max-width:260px;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap;}}
-.dtbl .foot td{{border-top:2px solid {C['navy']};padding-top:11px;
-    font-weight:700;color:{C['navy']};background:transparent;}}
-.dtbl .rnk{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;
-    font-weight:700;color:{C['muted']};text-align:right;width:28px;}}
+.dtbl td.nm{{font-weight:500;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
+.dtbl .foot td{{border-top:2px solid {C['navy']};padding-top:11px;font-weight:700;color:{C['navy']};background:transparent;}}
+.dtbl .rnk{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;font-weight:700;color:{C['muted']};text-align:right;width:28px;}}
 .prog-w{{height:5px;background:{C['line']};border-radius:1px;overflow:hidden;min-width:80px;}}
 .prog-f{{height:5px;border-radius:1px;transition:width .3s ease;}}
 .pbg{{display:inline-block;font-family:'SVN-Helvetica Now',sans-serif;font-size:.82rem;
@@ -243,8 +334,6 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 .bg-b{{background:#E8F4FD;color:{C['blue']};}}
 .bg-r{{background:{C['red2']};color:{C['red']};}}
 .bg-z{{background:{C['slate']};color:{C['muted']};}}
-
-/* No-data state */
 .no-data{{text-align:center;padding:48px 20px;color:{C['muted']};
     font-family:'SVN-Helvetica Now',sans-serif;font-size:1rem;
     letter-spacing:.1em;text-transform:uppercase;}}
@@ -276,6 +365,10 @@ def _find_col(df, *kw):
         if any(k.lower() in col.lower() for k in kw): return col
     return None
 
+def T(key):
+    """Lấy chuỗi theo ngôn ngữ hiện tại."""
+    return LANG[st.session_state["lang"]][key]
+
 def pct_badge(p):
     if p >= 75: return f'<span class="pbg bg-g">{p:.1f}%</span>'
     if p >= 40: return f'<span class="pbg bg-b">{p:.1f}%</span>'
@@ -283,7 +376,7 @@ def pct_badge(p):
     return '<span class="pbg bg-z">—</span>'
 
 def prog_bar(p):
-    w = min(p, 100)
+    w   = min(p, 100)
     col = C["green"] if p>=75 else C["blue"] if p>=40 else C["orange"] if p>0 else C["line"]
     return f'<div class="prog-w"><div class="prog-f" style="width:{w}%;background:{col}"></div></div>'
 
@@ -294,7 +387,7 @@ def delta_html(v):
 
 
 # ══════════════════════════════════════════════════════════════
-# LOAD WORKFORCE  (có cột survey_group từ GAS)
+# LOAD WORKFORCE
 # ══════════════════════════════════════════════════════════════
 @st.cache_data(ttl=600, show_spinner="Đang tải Workforce…")
 def load_workforce():
@@ -312,19 +405,19 @@ def load_workforce():
     for c in df.columns:
         n = _norm(c)
         if n in ("employeeid","id") and "employee_id" not in rename.values(): rename[c]="employee_id"
-        elif n=="status":          rename[c]="status"
-        elif n=="jobtitlename":    rename[c]="jobtitle_en"
-        elif n=="divisionname":    rename[c]="division_name"
-        elif n=="departmentname":  rename[c]="department_name"
-        elif n=="sectionname":     rename[c]="section_name"
-        elif n=="teamname":        rename[c]="team_name"
-        elif n=="buname":          rename[c]="bu_name"
-        elif n=="surveygroup":     rename[c]="survey_group"
+        elif n=="status":           rename[c]="status"
+        elif n=="jobtitlename":     rename[c]="jobtitle_en"
+        elif n=="divisionname":     rename[c]="division_name"
+        elif n=="departmentname":   rename[c]="department_name"
+        elif n=="sectionname":      rename[c]="section_name"
+        elif n=="teamname":         rename[c]="team_name"
+        elif n=="buname":           rename[c]="bu_name"
+        elif n=="surveygroup":      rename[c]="survey_group"
     df = df.rename(columns=rename)
 
     for col in ["employee_id","status","jobtitle_en","division_name",
                 "department_name","section_name","team_name","bu_name","survey_group"]:
-        if col not in df.columns: df[col]=None
+        if col not in df.columns: df[col] = None
 
     for col in ["division_name","department_name","section_name",
                 "team_name","bu_name","survey_group","jobtitle_en"]:
@@ -390,17 +483,17 @@ def map_ho_div(v):
 
 def parse_2ab(df, group):
     rows = []
-    col_ts   = _find_col(df, "timestamp","thời gian")
-    col_pb   = _find_col(df, "phòng ban","phong ban")
-    col_vung = _find_col(df, "thuộc vùng")
-    col_ktc  = _find_col(df, "kct","ttct","ktc/")
-    col_gxt  = _find_col(df, "bộ phận nào")
+    col_ts   = _find_col(df,"timestamp","thời gian")
+    col_pb   = _find_col(df,"phòng ban","phong ban")
+    col_vung = _find_col(df,"thuộc vùng")
+    col_ktc  = _find_col(df,"kct","ttct","ktc/")
+    col_gxt  = _find_col(df,"bộ phận nào")
     for _, row in df.iterrows():
         ts  = pd.to_datetime(row[col_ts], errors="coerce") if col_ts else pd.NaT
         pb  = _clean(row[col_pb]) if col_pb else None
         div=dept=sec=None
         if pb:
-            pl=pb.lower()
+            pl = pb.lower()
             if "warehouse" in pl or "fulfillment" in pl:
                 div="Phòng Dịch Vụ Kho Vận (Warehouse/ Fulfillment)"; dept="Phòng Dịch Vụ Kho Vận"
             elif "giao hàng nặng" in pl or "gxt" in pl:
@@ -412,7 +505,8 @@ def parse_2ab(df, group):
             else:
                 div="Market Division"; dept="Region"
                 sec=map_vung(_clean(row[col_vung]) if col_vung else None)
-        rows.append({"timestamp":ts,"survey_group":group,"division_wf":div,"department_wf":dept,"section_wf":sec})
+        rows.append({"timestamp":ts,"survey_group":group,
+                     "division_wf":div,"department_wf":dept,"section_wf":sec})
     return pd.DataFrame(rows)
 
 def parse_3ab(df, group):
@@ -431,39 +525,39 @@ def parse_3ab(df, group):
 @st.cache_data(ttl=600, show_spinner=False)
 def load_survey(group):
     try:
-        conn=st.connection(f"survey_{group}",type=GSheetsConnection)
-        df=conn.read(spreadsheet=_url(SURVEY_IDS[group]),worksheet="Form Responses 1")
+        conn = st.connection(f"survey_{group}", type=GSheetsConnection)
+        df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), worksheet="Form Responses 1")
     except Exception:
         try:
-            conn=st.connection(f"survey_{group}",type=GSheetsConnection)
-            df=conn.read(spreadsheet=_url(SURVEY_IDS[group]))
-        except Exception as e: return pd.DataFrame(),str(e)[:150]
-    df=df.dropna(how="all")
-    if len(df)==0: return pd.DataFrame(),None
+            conn = st.connection(f"survey_{group}", type=GSheetsConnection)
+            df = conn.read(spreadsheet=_url(SURVEY_IDS[group]))
+        except Exception as e: return pd.DataFrame(), str(e)[:150]
+    df = df.dropna(how="all")
+    if len(df)==0: return pd.DataFrame(), None
     try:
-        return (parse_2ab(df,group) if group in("2A","2B") else parse_3ab(df,group)),None
-    except Exception as e: return pd.DataFrame(),str(e)
+        return (parse_2ab(df,group) if group in("2A","2B") else parse_3ab(df,group)), None
+    except Exception as e: return pd.DataFrame(), str(e)
 
 @st.cache_data(ttl=600, show_spinner="Đang tải dữ liệu khảo sát…")
 def load_all_surveys():
-    parts,warnings=[],[]
+    parts, warnings = [], []
     for g in ALL_GROUPS:
-        part,err=load_survey(g)
+        part, err = load_survey(g)
         if err: warnings.append(f"[{g}] {err}")
         elif len(part)>0: parts.append(part)
     if parts:
-        df=pd.concat(parts,ignore_index=True)
-        df["timestamp"]=pd.to_datetime(df["timestamp"],errors="coerce")
-        return df,warnings
-    empty=pd.DataFrame(columns=["timestamp","survey_group","division_wf","department_wf","section_wf"])
-    empty["timestamp"]=pd.NaT
-    return empty,warnings
+        df = pd.concat(parts, ignore_index=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        return df, warnings
+    empty = pd.DataFrame(columns=["timestamp","survey_group","division_wf","department_wf","section_wf"])
+    empty["timestamp"] = pd.NaT
+    return empty, warnings
 
 
 # ══════════════════════════════════════════════════════════════
 # HEADER
 # ══════════════════════════════════════════════════════════════
-now_str=datetime.now().strftime("%d/%m/%Y  %H:%M")
+now_str = datetime.now().strftime("%d/%m/%Y  %H:%M")
 st.markdown(f"""
 <div class="site-header">
   <div class="hdr-accent"></div>
@@ -471,10 +565,10 @@ st.markdown(f"""
     <div>
       <div class="hdr-label">Giao Hàng Nhanh · Employee Experience · 2026</div>
       <div class="hdr-title">EES Race <span class="acc">2026</span></div>
-      <div class="hdr-desc">Tiến độ tham gia khảo sát theo Division, Department và Section — phân tích theo nhóm khảo sát.</div>
+      <div class="hdr-desc">{T('page_sub')}</div>
     </div>
     <div class="hdr-meta">
-      <div class="ml">Cập nhật lần cuối</div>
+      <div class="ml">{T('updated')}</div>
       <div class="mv">{now_str}</div>
     </div>
   </div>
@@ -485,8 +579,8 @@ st.markdown(f"""
 # ══════════════════════════════════════════════════════════════
 # LOAD DATA
 # ══════════════════════════════════════════════════════════════
-df_wf_raw=load_workforce()
-df_sv_raw,warnings=load_all_surveys()
+df_wf_raw = load_workforce()
+df_sv_raw, warnings = load_all_surveys()
 for w in warnings: st.warning(w)
 
 
@@ -494,99 +588,121 @@ for w in warnings: st.warning(w)
 # SIDEBAR
 # ══════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown('<div class="sb-logo">GHN <span>EES</span></div>',unsafe_allow_html=True)
-    if st.button("Làm mới dữ liệu"):
+    st.markdown('<div class="sb-logo">GHN <span>EES</span></div>', unsafe_allow_html=True)
+
+    # ── LANGUAGE TOGGLE ────────────────────────────────────────
+    lang = st.session_state["lang"]
+    vi_active = "active" if lang == "VI" else ""
+    en_active = "active" if lang == "EN" else ""
+
+    st.markdown(f"""
+    <div class="lang-wrap">
+      <div class="lang-btn {vi_active}" id="btn-vi">Tiếng Việt</div>
+      <div class="lang-btn {en_active}" id="btn-en">English</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_vi, col_en = st.columns(2)
+    with col_vi:
+        if st.button("Tiếng Việt", key="lang_vi",
+                     type="primary" if lang=="VI" else "secondary",
+                     use_container_width=True):
+            st.session_state["lang"] = "VI"
+            st.rerun()
+    with col_en:
+        if st.button("English", key="lang_en",
+                     type="primary" if lang=="EN" else "secondary",
+                     use_container_width=True):
+            st.session_state["lang"] = "EN"
+            st.rerun()
+
+    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
+
+    if st.button(T("refresh")):
         st.cache_data.clear(); st.rerun()
 
-    st.markdown('<hr class="sb-div">',unsafe_allow_html=True)
+    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
 
-    bu_opts=sorted(x for x in df_wf_raw["bu_name"].dropna().unique() if x)
-    sel_bu=st.multiselect("Business Unit",bu_opts,default=bu_opts)
-    only_act=st.checkbox("Chỉ nhân sự đang làm (status = 1)",value=True)
+    only_act = st.checkbox(T("only_active"), value=True)
 
-    st.markdown('<hr class="sb-div">',unsafe_allow_html=True)
+    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
 
-    # Nhóm khảo sát — KEY FILTER
-    sel_groups=st.multiselect(
-        "Nhóm khảo sát",ALL_GROUPS,default=ALL_GROUPS,
-        format_func=lambda g:f"{g}  ·  {GROUP_LABELS[g]}",
+    # Nhóm khảo sát
+    grp_labels = T("group_labels")
+    sel_groups = st.multiselect(
+        T("survey_group"), ALL_GROUPS, default=ALL_GROUPS,
+        format_func=lambda g: f"{g}  ·  {grp_labels[g]}",
     )
 
-    st.markdown('<hr class="sb-div">',unsafe_allow_html=True)
+    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
 
-    # Cascade filter (chỉ show data thuộc nhóm đã chọn)
+    # Cascade filter (theo survey_group)
     wf_grp = df_wf_raw[df_wf_raw["survey_group"].isin(sel_groups)] if sel_groups else df_wf_raw
-    if sel_bu: wf_grp=wf_grp[wf_grp["bu_name"].isin(sel_bu)]
 
-    div_opts=sorted(x for x in wf_grp["division_name"].dropna().unique() if x)
-    sel_div=st.multiselect("Division",div_opts)
+    div_opts  = sorted(x for x in wf_grp["division_name"].dropna().unique() if x)
+    sel_div   = st.multiselect(T("division_lbl"), div_opts)
 
-    wf_tmp=wf_grp[wf_grp["division_name"].isin(sel_div)] if sel_div else wf_grp
-    dept_opts=sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
-    sel_dept=st.multiselect("Department",dept_opts)
+    wf_tmp = wf_grp[wf_grp["division_name"].isin(sel_div)] if sel_div else wf_grp
+    dept_opts = sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
+    sel_dept  = st.multiselect(T("dept_lbl"), dept_opts)
 
-    if sel_dept: wf_tmp=wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
-    sec_opts=sorted(x for x in wf_tmp["section_name"].dropna().unique() if x)
-    sel_sec=st.multiselect("Section / Vùng",sec_opts)
+    if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
+    sec_opts  = sorted(x for x in wf_tmp["section_name"].dropna().unique() if x)
+    sel_sec   = st.multiselect(T("section_lbl"), sec_opts)
 
-    st.markdown('<hr class="sb-div">',unsafe_allow_html=True)
+    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
 
     if df_sv_raw["timestamp"].notna().any():
-        ts_min=df_sv_raw["timestamp"].min().date()
-        ts_max=df_sv_raw["timestamp"].max().date()
-        date_rng=st.date_input("Khoảng thời gian",(ts_min,ts_max),
-                               min_value=ts_min,max_value=ts_max)
-    else: date_rng=None
+        ts_min = df_sv_raw["timestamp"].min().date()
+        ts_max = df_sv_raw["timestamp"].max().date()
+        date_rng = st.date_input(T("date_range"), (ts_min, ts_max),
+                                  min_value=ts_min, max_value=ts_max)
+    else: date_rng = None
 
-    st.markdown(
-        '<p class="sb-note">HC được tính từ nhân sự có survey_group tương ứng.<br>'
-        'Filter cascade: Division → Department → Section.</p>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(f'<p class="sb-note">{T("sidebar_note")}</p>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════
-# APPLY FILTERS — HC từ workforce
+# APPLY FILTERS
 # ══════════════════════════════════════════════════════════════
-# Bước 1: Lọc workforce theo survey_group (quan trọng nhất)
 df_wf = df_wf_raw.copy()
-if sel_groups: df_wf=df_wf[df_wf["survey_group"].isin(sel_groups)]
-if sel_bu:     df_wf=df_wf[df_wf["bu_name"].isin(sel_bu)]
-if only_act:   df_wf=df_wf[df_wf["status"]==1]
-if sel_div:    df_wf=df_wf[df_wf["division_name"].isin(sel_div)]
-if sel_dept:   df_wf=df_wf[df_wf["department_name"].isin(sel_dept)]
-if sel_sec:    df_wf=df_wf[df_wf["section_name"].isin(sel_sec)]
+if sel_groups: df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
+if only_act:   df_wf = df_wf[df_wf["status"] == 1]
+if sel_div:    df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
+if sel_dept:   df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
+if sel_sec:    df_wf = df_wf[df_wf["section_name"].isin(sel_sec)]
 
-# Bước 2: Lọc survey responses theo nhóm
-df_sv=df_sv_raw.copy()
-if sel_groups: df_sv=df_sv[df_sv["survey_group"].isin(sel_groups)]
-if sel_div:    df_sv=df_sv[df_sv["division_wf"].isin(sel_div)|df_sv["division_wf"].isna()]
+df_sv = df_sv_raw.copy()
+if sel_groups: df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
+if sel_div:    df_sv = df_sv[df_sv["division_wf"].isin(sel_div) | df_sv["division_wf"].isna()]
 if date_rng and isinstance(date_rng,(tuple,list)) and len(date_rng)==2:
-    d0,d1=date_rng
-    df_sv=df_sv[(df_sv["timestamp"].dt.date>=d0)&(df_sv["timestamp"].dt.date<=d1)
-                |df_sv["timestamp"].isna()]
+    d0, d1 = date_rng
+    df_sv = df_sv[(df_sv["timestamp"].dt.date >= d0) & (df_sv["timestamp"].dt.date <= d1)
+                  | df_sv["timestamp"].isna()]
 
 
 # ══════════════════════════════════════════════════════════════
 # KPI
 # ══════════════════════════════════════════════════════════════
-today=datetime.now().date(); yesterday=today-timedelta(days=1)
-total_hc=len(df_wf); total_rs=len(df_sv)
-pct_done=(total_rs/total_hc*100) if total_hc>0 else 0
-pending=max(total_hc-total_rs,0)
-n_today=n_yest=0
+today = datetime.now().date(); yesterday = today - timedelta(days=1)
+total_hc  = len(df_wf); total_rs = len(df_sv)
+pct_done  = (total_rs / total_hc * 100) if total_hc > 0 else 0
+pending   = max(total_hc - total_rs, 0)
+n_today = n_yest = 0
 if df_sv["timestamp"].notna().any():
-    _d=df_sv["timestamp"].dt.date
-    n_today=int((_d==today).sum()); n_yest=int((_d==yesterday).sum())
+    _d = df_sv["timestamp"].dt.date
+    n_today = int((_d == today).sum()); n_yest = int((_d == yesterday).sum())
 
-# Hiển thị nhóm đang chọn
-grp_lbl=", ".join([f"{g} · {GROUP_LABELS[g]}" for g in (sel_groups or ALL_GROUPS)])
+grp_labels = T("group_labels")
+grp_lbl = ", ".join([f"{g} · {grp_labels[g]}" for g in (sel_groups or ALL_GROUPS)])
 st.markdown(f"""
 <div style="background:{C['bg']};border:1px solid {C['border']};
     border-left:4px solid {C['orange']};padding:10px 20px;margin-bottom:20px;
     font-size:.82rem;color:{C['sub']};">
   <strong style="color:{C['navy']};font-family:'SVN-Helvetica Now',sans-serif;
-    font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;">Đang xem:</strong>
+    font-size:.82rem;letter-spacing:.06em;text-transform:uppercase;">
+    {T('viewing')}:
+  </strong>
   &nbsp;{grp_lbl}
 </div>
 """, unsafe_allow_html=True)
@@ -594,24 +710,24 @@ st.markdown(f"""
 st.markdown(f"""
 <div class="kpi-grid">
   <div class="kpi-cell kc-navy">
-    <div class="kpi-lbl">Tổng Nhân Sự</div>
+    <div class="kpi-lbl">{T('kpi_hc')}</div>
     <div class="kpi-val">{total_hc:,}</div>
-    <div class="kpi-sub">HC của nhóm đã chọn</div>
+    <div class="kpi-sub">{T('kpi_hc_sub')}</div>
   </div>
   <div class="kpi-cell kc-blue">
-    <div class="kpi-lbl">Đã Tham Gia</div>
+    <div class="kpi-lbl">{T('kpi_done')}</div>
     <div class="kpi-val">{total_rs:,}</div>
-    <div class="kpi-sub">{pct_done:.1f}% trên tổng HC</div>
+    <div class="kpi-sub">{pct_done:.1f}% {T('kpi_done_sub')}</div>
   </div>
   <div class="kpi-cell kc-orange">
-    <div class="kpi-lbl">Chưa Tham Gia</div>
+    <div class="kpi-lbl">{T('kpi_pending')}</div>
     <div class="kpi-val">{pending:,}</div>
-    <div class="kpi-sub">HC − Response</div>
+    <div class="kpi-sub">{T('kpi_pending_sub')}</div>
   </div>
   <div class="kpi-cell kc-green">
-    <div class="kpi-lbl">Hôm Nay</div>
+    <div class="kpi-lbl">{T('kpi_today')}</div>
     <div class="kpi-val">{n_today:,}</div>
-    <div class="kpi-sub">{delta_html(n_today-n_yest)} so với hôm qua ({n_yest:,})</div>
+    <div class="kpi-sub">{delta_html(n_today-n_yest)} {T('kpi_today_sub')} ({n_yest:,})</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -621,54 +737,66 @@ st.markdown(f"""
 # CORE HELPERS
 # ══════════════════════════════════════════════════════════════
 def build_df(wf, sv, wf_col, sv_col, label):
-    hc=(wf.groupby(wf_col,dropna=False).size().rename("hc"))
-    rs=(sv[sv[sv_col].notna()].groupby(sv_col).size().rename("responses")
-        if len(sv)>0 else pd.Series(dtype=int,name="responses"))
-    out=pd.concat([hc,rs],axis=1).fillna(0).astype(int).reset_index()
-    out.columns=[label,"hc","responses"]
-    out=out[out[label].notna()]
-    out["pending"]=(out["hc"]-out["responses"]).clip(lower=0)
-    out["pct"]=(out["responses"]/out["hc"].replace(0,pd.NA)*100).fillna(0).round(1)
-    return out.sort_values("pct",ascending=False).reset_index(drop=True)
+    hc = wf.groupby(wf_col, dropna=False).size().rename("hc")
+    rs = (sv[sv[sv_col].notna()].groupby(sv_col).size().rename("responses")
+          if len(sv)>0 else pd.Series(dtype=int, name="responses"))
+    out = pd.concat([hc,rs], axis=1).fillna(0).astype(int).reset_index()
+    out.columns = [label, "hc", "responses"]
+    out = out[out[label].notna()]
+    out["pending"] = (out["hc"] - out["responses"]).clip(lower=0)
+    out["pct"]     = (out["responses"] / out["hc"].replace(0,pd.NA) * 100).fillna(0).round(1)
+    return out.sort_values("pct", ascending=False).reset_index(drop=True)
 
 def render_chart(df, label_col, h=360):
-    avg=df["pct"].mean()
+    avg = df["pct"].mean()
     def bc(p): return C["green"] if p>=75 else C["blue"] if p>=40 else C["orange"] if p>0 else C["muted"]
-    fig=go.Figure()
+    fig = go.Figure()
     fig.add_trace(go.Bar(
-        y=df[label_col],x=[100]*len(df),orientation="h",
-        marker_color="rgba(220,224,232,0.45)",marker_line_width=0,
-        hoverinfo="skip",showlegend=False,
+        y=df[label_col], x=[100]*len(df), orientation="h",
+        marker_color="rgba(220,224,232,0.45)", marker_line_width=0,
+        hoverinfo="skip", showlegend=False,
     ))
     fig.add_trace(go.Bar(
-        y=df[label_col],x=df["pct"],orientation="h",
-        marker_color=[bc(p) for p in df["pct"]],marker_line_width=0,
+        y=df[label_col], x=df["pct"], orientation="h",
+        marker_color=[bc(p) for p in df["pct"]], marker_line_width=0,
         text=[f"  {p:.1f}%" for p in df["pct"]],
         textposition="outside",
-        textfont=dict(size=10,color=C["text"],family="SVN-Helvetica Now"),
-        hovertemplate="<b>%{y}</b><br>%{x:.1f}%  ·  %{customdata[0]:,} / %{customdata[1]:,}<extra></extra>",
-        customdata=list(zip(df["responses"],df["hc"])),
+        textfont=dict(size=10, color=C["text"], family="SVN-Helvetica Now"),
+        hovertemplate=(
+            f"<b>%{{y}}</b><br>"
+            f"{T('chart_pct')}: %{{x:.1f}}%<br>"
+            f"{T('col_done')}: %{{customdata[0]:,}} / {T('col_hc')}: %{{customdata[1]:,}}"
+            f"<extra></extra>"
+        ),
+        customdata=list(zip(df["responses"], df["hc"])),
         showlegend=False,
     ))
-    fig.add_vline(x=avg,line_dash="dot",line_color=C["orange"],line_width=1.5,
-                  annotation_text=f"TB  {avg:.1f}%",annotation_position="top",
-                  annotation_font=dict(size=9,color=C["orange"],family="Barlow Condensed"))
+    fig.add_vline(
+        x=avg, line_dash="dot", line_color=C["orange"], line_width=1.5,
+        annotation_text=f"{T('chart_avg')}  {avg:.1f}%",
+        annotation_position="top",
+        annotation_font=dict(size=9, color=C["orange"], family="SVN-Helvetica Now"),
+    )
     fig.update_layout(
-        paper_bgcolor="white",plot_bgcolor="white",height=h,
-        margin=dict(l=260,r=120,t=24,b=24),barmode="overlay",bargap=0.32,
-        font=dict(family="SVN-Helvetica Now",size=11,color=C["text"]),
-        xaxis=dict(range=[0,min(max(df["pct"].max()+22,110),130)],dtick=25,
-                   showgrid=True,gridcolor=C["line"],zeroline=False,
-                   title="% Hoàn thành",title_font=dict(size=10,color=C["muted"]),
-                   tickfont=dict(size=10,color=C["muted"])),
-        yaxis=dict(showgrid=False,tickfont=dict(size=10,color=C["text"])),
+        paper_bgcolor="white", plot_bgcolor="white", height=h,
+        margin=dict(l=260, r=120, t=24, b=24),
+        barmode="overlay", bargap=0.32,
+        font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
+        xaxis=dict(
+            range=[0, min(max(df["pct"].max()+22, 110), 130)], dtick=25,
+            showgrid=True, gridcolor=C["line"], zeroline=False,
+            title=T("chart_pct"),
+            title_font=dict(size=10, color=C["muted"]),
+            tickfont=dict(size=10, color=C["muted"]),
+        ),
+        yaxis=dict(showgrid=False, tickfont=dict(size=10, color=C["text"])),
     )
     return fig
 
 def render_table(df, label_col):
-    rows=""
-    for i,r in df.iterrows():
-        rows+=f"""
+    rows = ""
+    for i, r in df.iterrows():
+        rows += f"""
 <tr>
   <td class="rnk">{i+1}</td>
   <td class="nm" title="{r[label_col]}">{r[label_col]}</td>
@@ -678,12 +806,12 @@ def render_table(df, label_col):
   <td class="r">{pct_badge(r['pct'])}</td>
   <td style="min-width:90px;padding-left:4px">{prog_bar(r['pct'])}</td>
 </tr>"""
-    t_hc=int(df["hc"].sum()); t_rs=int(df["responses"].sum())
-    t_pnd=int(df["pending"].sum())
-    t_pct=(t_rs/t_hc*100) if t_hc>0 else 0
-    rows+=f"""
+    t_hc  = int(df["hc"].sum()); t_rs = int(df["responses"].sum())
+    t_pnd = int(df["pending"].sum())
+    t_pct = (t_rs / t_hc * 100) if t_hc > 0 else 0
+    rows += f"""
 <tr class="foot">
-  <td></td><td>Total</td>
+  <td></td><td>{T('col_total')}</td>
   <td class="r">{t_hc:,}</td><td class="r">{t_rs:,}</td>
   <td class="r">{t_pnd:,}</td>
   <td class="r">{pct_badge(t_pct)}</td><td></td>
@@ -692,8 +820,11 @@ def render_table(df, label_col):
 <table class="dtbl">
 <thead><tr>
   <th class="r">#</th><th>{label_col}</th>
-  <th class="r">HC</th><th class="r">Đã nộp</th>
-  <th class="r">Chưa nộp</th><th class="r">Tỷ lệ</th><th></th>
+  <th class="r">{T('col_hc')}</th>
+  <th class="r">{T('col_done')}</th>
+  <th class="r">{T('col_pending')}</th>
+  <th class="r">{T('col_rate')}</th>
+  <th></th>
 </tr></thead><tbody>{rows}</tbody></table></div>"""
 
 def section_wrap(title, meta, content_fn):
@@ -713,96 +844,112 @@ def section_wrap(title, meta, content_fn):
 # ══════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════
-tab1,tab2,tab3,tab4=st.tabs([
-    "Theo Division","Theo Department","Theo Section / Vùng","Xu hướng theo ngày"
+tab1, tab2, tab3, tab4 = st.tabs([
+    T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_trend"),
 ])
 
 # ─── TAB 1: DIVISION ──────────────────────────────────────────
 with tab1:
-    div_df=build_df(df_wf,df_sv,"division_name","division_wf","Division")
+    div_df = build_df(df_wf, df_sv, "division_name", "division_wf", "Division")
     def _t1():
         if len(div_df)==0:
-            st.markdown('<div class="no-data">Không có dữ liệu</div>',unsafe_allow_html=True); return
-        c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(div_df,"Division",h=max(340,len(div_df)*52+70)),use_container_width=True)
-        with c2: st.markdown(render_table(div_df,"Division"),unsafe_allow_html=True)
-    section_wrap("Tiến độ theo Division",f"{len(div_df)} divisions · HC {total_hc:,}",_t1)
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
+        c1, c2 = st.columns([55,45])
+        with c1:
+            st.plotly_chart(render_chart(div_df, "Division",
+                            h=max(340, len(div_df)*52+70)), use_container_width=True)
+        with c2:
+            st.markdown(render_table(div_df, "Division"), unsafe_allow_html=True)
+    section_wrap(T("sec_div"), f"{len(div_df)} {T('divisions')} · HC {total_hc:,}", _t1)
 
 # ─── TAB 2: DEPARTMENT ────────────────────────────────────────
 with tab2:
-    dept_df=build_df(df_wf,df_sv,"department_name","department_wf","Department")
+    dept_df = build_df(df_wf, df_sv, "department_name", "department_wf", "Department")
     def _t2():
         if len(dept_df)==0:
-            st.markdown('<div class="no-data">Không có dữ liệu</div>',unsafe_allow_html=True); return
-        n=st.slider("Top N phòng ban",5,min(60,len(dept_df)),min(20,len(dept_df)),key="dn")
-        show=dept_df.head(n)
-        c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(show,"Department",h=max(340,len(show)*48+70)),use_container_width=True)
-        with c2: st.markdown(render_table(show,"Department"),unsafe_allow_html=True)
-    section_wrap("Tiến độ theo Department",f"{len(dept_df)} departments",_t2)
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
+        n = st.slider(T("top_n_dept"), 5, min(60,len(dept_df)), min(20,len(dept_df)), key="dn")
+        show = dept_df.head(n)
+        c1, c2 = st.columns([55,45])
+        with c1:
+            st.plotly_chart(render_chart(show, "Department",
+                            h=max(340, len(show)*48+70)), use_container_width=True)
+        with c2:
+            st.markdown(render_table(show, "Department"), unsafe_allow_html=True)
+    section_wrap(T("sec_dept"), f"{len(dept_df)} {T('departments')}", _t2)
 
-# ─── TAB 3: SECTION / VÙNG ───────────────────────────────────
+# ─── TAB 3: SECTION ───────────────────────────────────────────
 with tab3:
-    sec_df=build_df(df_wf,df_sv,"section_name","section_wf","Section")
+    sec_df = build_df(df_wf, df_sv, "section_name", "section_wf", "Section")
     def _t3():
         if len(sec_df)==0:
-            st.markdown('<div class="no-data">Không có dữ liệu</div>',unsafe_allow_html=True); return
-        n2=st.slider("Top N section",5,min(80,len(sec_df)),min(25,len(sec_df)),key="sn")
-        show2=sec_df.head(n2)
-        c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(show2,"Section",h=max(340,len(show2)*46+70)),use_container_width=True)
-        with c2: st.markdown(render_table(show2,"Section"),unsafe_allow_html=True)
-    section_wrap("Tiến độ theo Section / Vùng",f"{len(sec_df)} sections",_t3)
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
+        n2 = st.slider(T("top_n_sec"), 5, min(80,len(sec_df)), min(25,len(sec_df)), key="sn")
+        show2 = sec_df.head(n2)
+        c1, c2 = st.columns([55,45])
+        with c1:
+            st.plotly_chart(render_chart(show2, "Section",
+                            h=max(340, len(show2)*46+70)), use_container_width=True)
+        with c2:
+            st.markdown(render_table(show2, "Section"), unsafe_allow_html=True)
+    section_wrap(T("sec_sec"), f"{len(sec_df)} {T('sections')}", _t3)
 
 # ─── TAB 4: TREND ─────────────────────────────────────────────
 with tab4:
     def _t4():
         if not df_sv["timestamp"].notna().any():
-            st.markdown('<div class="no-data">Chưa có timestamp hợp lệ</div>',unsafe_allow_html=True); return
-        tdf=df_sv.dropna(subset=["timestamp"]).copy()
-        tdf["_d"]=tdf["timestamp"].dt.date
-        daily=(tdf.groupby("_d").size().rename("new").reset_index()
-               .sort_values("_d").reset_index(drop=True))
-        daily["cum"]=daily["new"].cumsum()
-        daily["pct_cum"]=(daily["cum"]/total_hc*100) if total_hc>0 else 0
-        daily["lbl"]=daily["_d"].apply(lambda d:d.strftime("%d/%m"))
+            st.markdown(f'<div class="no-data">{T("no_ts")}</div>', unsafe_allow_html=True); return
+        tdf = df_sv.dropna(subset=["timestamp"]).copy()
+        tdf["_d"] = tdf["timestamp"].dt.date
+        daily = (tdf.groupby("_d").size().rename("new").reset_index()
+                 .sort_values("_d").reset_index(drop=True))
+        daily["cum"]     = daily["new"].cumsum()
+        daily["pct_cum"] = (daily["cum"] / total_hc * 100) if total_hc > 0 else 0
+        daily["lbl"]     = daily["_d"].apply(lambda d: d.strftime("%d/%m"))
 
-        fig_t=make_subplots(specs=[[{"secondary_y":True}]])
-        max_new=daily["new"].max() or 1
+        fig_t = make_subplots(specs=[[{"secondary_y":True}]])
+        max_new = daily["new"].max() or 1
         fig_t.add_trace(go.Bar(
-            x=daily["lbl"],y=daily["new"],
+            x=daily["lbl"], y=daily["new"],
             marker_color=[f"rgba(0,111,173,{0.3+0.6*(v/max_new)})" for v in daily["new"]],
-            marker_line_width=0,name="Mới trong ngày",
-            hovertemplate="<b>%{x}</b>  ·  %{y:,} mới<extra></extra>",
-        ),secondary_y=False)
+            marker_line_width=0, name=T("chart_new"),
+            hovertemplate=f"<b>%{{x}}</b>  ·  %{{y:,}} {T('chart_new').lower()}<extra></extra>",
+        ), secondary_y=False)
         fig_t.add_trace(go.Scatter(
-            x=daily["lbl"],y=daily["pct_cum"],mode="lines+markers",
-            line=dict(color=C["orange"],width=2.5,shape="spline"),
-            marker=dict(size=6,color=C["orange"],line=dict(width=1.5,color="white")),
-            name="% Tích lũy",
-            hovertemplate="<b>%{x}</b>  ·  %{y:.1f}%<extra></extra>",
-        ),secondary_y=True)
+            x=daily["lbl"], y=daily["pct_cum"],
+            mode="lines+markers",
+            line=dict(color=C["orange"], width=2.5, shape="spline"),
+            marker=dict(size=6, color=C["orange"], line=dict(width=1.5, color="white")),
+            name=T("chart_cum"),
+            hovertemplate=f"<b>%{{x}}</b>  ·  %{{y:.1f}}% {T('chart_cum').lower()}<extra></extra>",
+        ), secondary_y=True)
         fig_t.update_layout(
-            paper_bgcolor="white",plot_bgcolor="white",
-            height=360,bargap=0.25,showlegend=True,
-            margin=dict(l=40,r=70,t=16,b=52),
-            font=dict(family="SVN-Helvetica Now",size=11,color=C["text"]),
-            legend=dict(orientation="h",y=1.06,x=1,xanchor="right",
-                        bgcolor="rgba(255,255,255,.9)",font=dict(size=11),
-                        bordercolor=C["border"],borderwidth=1),
-            xaxis=dict(type="category",tickangle=-45,showgrid=False,
-                       tickfont=dict(size=10,color=C["muted"])),
+            paper_bgcolor="white", plot_bgcolor="white",
+            height=360, bargap=0.25, showlegend=True,
+            margin=dict(l=40, r=70, t=16, b=52),
+            font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
+            legend=dict(orientation="h", y=1.06, x=1, xanchor="right",
+                        bgcolor="rgba(255,255,255,.9)", font=dict(size=11),
+                        bordercolor=C["border"], borderwidth=1),
+            xaxis=dict(type="category", tickangle=-45, showgrid=False,
+                       tickfont=dict(size=10, color=C["muted"])),
         )
-        fig_t.update_yaxes(title_text="Response mới / ngày",
-                           title_font=dict(size=10,color=C["sub"]),
-                           showgrid=True,gridcolor=C["line"],
-                           tickfont=dict(size=10,color=C["muted"]),secondary_y=False)
-        fig_t.update_yaxes(title_text="% Tích lũy",
-                           title_font=dict(size=10,color=C["sub"]),
-                           range=[0,108],showgrid=False,
-                           tickfont=dict(size=10,color=C["muted"]),secondary_y=True)
-        st.plotly_chart(fig_t,use_container_width=True)
-    section_wrap("Response theo ngày — tích lũy & mới","",_t4)
+        fig_t.update_yaxes(
+            title_text=T("chart_new_y"),
+            title_font=dict(size=10, color=C["sub"]),
+            showgrid=True, gridcolor=C["line"],
+            tickfont=dict(size=10, color=C["muted"]),
+            secondary_y=False,
+        )
+        fig_t.update_yaxes(
+            title_text=T("chart_cum_y"),
+            title_font=dict(size=10, color=C["sub"]),
+            range=[0,108], showgrid=False,
+            tickfont=dict(size=10, color=C["muted"]),
+            secondary_y=True,
+        )
+        st.plotly_chart(fig_t, use_container_width=True)
+    section_wrap(T("sec_trend"), "", _t4)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -815,8 +962,8 @@ st.markdown(f"""
   <span>
     <strong style="color:{C['navy']};font-family:'SVN-Helvetica Now',sans-serif;
       font-size:.85rem;font-weight:700;letter-spacing:.04em;">GHN EES 2026</strong>
-    &nbsp;·&nbsp; Survey Progress Dashboard &nbsp;·&nbsp; EX Team
+    &nbsp;·&nbsp; {T('footer')}
   </span>
-  <span>Render: {now_str}</span>
+  <span>{T('render')}: {now_str}</span>
 </div>
 """, unsafe_allow_html=True)
