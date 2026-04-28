@@ -1,11 +1,9 @@
 """
 GHN EES 2026 — Survey Progress Dashboard
-Kiến trúc mapping:
-  Survey response value
-    → sheet Mapping (survey_val → wf_col + wf_val)
-    → JOIN với Workforce Data trên (wf_col == wf_val)
-    → lấy toàn bộ thông tin nhân viên (division, department, section, team...)
-    → dashboard group theo các cột đó
+Fix:
+  1. wf_lookup tìm trên TẤT CẢ cột string của workforce (không chỉ section_name_vn)
+  2. Duy nhất 1 định nghĩa _find_col
+  3. MAP_2AB: sau khi map survey_val → wf_sec_vn, join WF trên tất cả cột string để lấy đúng division/dept
 """
 import streamlit as st
 import pandas as pd
@@ -39,27 +37,27 @@ C = {
 
 LANG = {
     "VI": {
-        "page_sub":        "Tiến độ tham gia khảo sát theo Division, Department và Section.",
-        "updated":         "Cập nhật lần cuối",
-        "refresh":         "Làm mới dữ liệu",
-        "only_active":     "Chỉ nhân sự đang làm (status = 1)",
-        "survey_group":    "Nhóm khảo sát",
-        "division_lbl":    "Division",
-        "dept_lbl":        "Department",
-        "section_lbl":     "Section / Vùng",
-        "date_range":      "Khoảng thời gian",
-        "sidebar_note":    "HC từ workforce, ánh xạ qua sheet Mapping.<br>Filter: Division → Department → Section.",
-        "viewing":         "Đang xem",
-        "kpi_hc":          "Tổng Nhân Sự",    "kpi_hc_sub":      "HC của nhóm đã chọn",
-        "kpi_done":        "Đã Tham Gia",      "kpi_done_sub":    "trên tổng HC",
-        "kpi_pending":     "Chưa Tham Gia",    "kpi_pending_sub": "HC − Response",
-        "kpi_today":       "Hôm Nay",          "kpi_today_sub":   "so với hôm qua",
-        "tab_div":   "Theo Division",    "tab_dept":  "Theo Department",
-        "tab_sec":   "Theo Section",     "tab_trend": "Xu hướng theo ngày",
-        "sec_div":   "Tiến độ theo Division",
-        "sec_dept":  "Tiến độ theo Department",
-        "sec_sec":   "Tiến độ theo Section / Vùng",
-        "sec_trend": "Response theo ngày — tích lũy & mới",
+        "page_sub":       "Tiến độ tham gia khảo sát theo Division, Department và Section.",
+        "updated":        "Cập nhật lần cuối",
+        "refresh":        "Làm mới dữ liệu",
+        "only_active":    "Chỉ nhân sự đang làm (status = 1)",
+        "survey_group":   "Nhóm khảo sát",
+        "division_lbl":   "Division",
+        "dept_lbl":       "Department",
+        "section_lbl":    "Section / Vùng",
+        "date_range":     "Khoảng thời gian",
+        "sidebar_note":   "HC từ workforce, ánh xạ qua sheet Mapping.<br>Filter: Division → Department → Section.",
+        "viewing":        "Đang xem",
+        "kpi_hc":         "Tổng Nhân Sự",    "kpi_hc_sub":      "HC của nhóm đã chọn",
+        "kpi_done":       "Đã Tham Gia",      "kpi_done_sub":    "trên tổng HC",
+        "kpi_pending":    "Chưa Tham Gia",    "kpi_pending_sub": "HC − Response",
+        "kpi_today":      "Hôm Nay",          "kpi_today_sub":   "so với hôm qua",
+        "tab_div":  "Theo Division",    "tab_dept":  "Theo Department",
+        "tab_sec":  "Theo Section",     "tab_trend": "Xu hướng theo ngày",
+        "sec_div":  "Tiến độ theo Division",
+        "sec_dept": "Tiến độ theo Department",
+        "sec_sec":  "Tiến độ theo Section / Vùng",
+        "sec_trend":"Response theo ngày — tích lũy & mới",
         "top_n_dept":"Top N phòng ban",  "top_n_sec": "Top N section",
         "col_hc":"HC", "col_done":"Đã nộp", "col_pending":"Chưa nộp",
         "col_rate":"Tỷ lệ", "col_total":"Tổng cộng",
@@ -78,27 +76,28 @@ LANG = {
         "render":"Render",
     },
     "EN": {
-        "page_sub":        "Survey participation progress by Division, Department and Section.",
-        "updated":         "Last updated",
-        "refresh":         "Refresh data",
-        "only_active":     "Active employees only (status = 1)",
-        "survey_group":    "Survey group",
-        "division_lbl":    "Division",
-        "dept_lbl":        "Department",
-        "section_lbl":     "Section / Region",
-        "date_range":      "Date range",
-        "sidebar_note":    "HC from workforce, mapped via Mapping sheet.<br>Filter: Division → Department → Section.",
-        "viewing":         "Viewing",
-        "kpi_hc":          "Total Headcount",  "kpi_hc_sub":      "HC of selected groups",
-        "kpi_done":        "Participated",      "kpi_done_sub":    "of total HC",
-        "kpi_pending":     "Not Yet",           "kpi_pending_sub": "HC − Response",
-        "kpi_today":       "Today",             "kpi_today_sub":   "vs yesterday",
-        "tab_div":   "By Division",      "tab_dept":  "By Department",
-        "tab_sec":   "By Section",       "tab_trend": "Daily Trend",
-        "sec_div":   "Progress by Division",
-        "sec_dept":  "Progress by Department",
-        "sec_sec":   "Progress by Section / Region",
-        "sec_trend": "Daily response — cumulative & new",
+        "page_sub":       "Survey participation progress by Division, Department and Section.",
+        "updated":        "Last updated",
+        "refresh":        "Refresh data",
+        "only_active":    "Active employees only (status = 1)",
+        "survey_group":   "Survey group",
+        "division_lbl":   "Division",
+        "dept_lbl":       "Department",
+        "section_lbl":    "Section / Region",
+        "date_range":     "Date range",
+        "sidebar_note":   "HC from workforce, mapped via Mapping sheet.<br>Filter: Division → Department → Section.",
+        "viewing":        "Viewing",
+        "kpi_hc":         "Total Headcount",  "kpi_hc_sub":      "HC of selected groups",
+        "kpi_done":       "Participated",      "kpi_done_sub":    "of total HC",
+        "kpi_pending":    "Not Yet",           "kpi_pending_sub": "HC − Response",
+        "kpi_today":      "Today",             "kpi_today_sub":   "vs yesterday",
+        "tab_div":  "By Division",      "tab_dept":  "By Department",
+        "tab_sec":  "By Section",       "tab_job":   "By Job Title", "tab_trend": "Daily Trend",
+        "sec_div":  "Progress by Division",
+        "sec_dept": "Progress by Department",
+        "sec_sec":  "Progress by Section / Region",
+        "sec_job":  "Progress by Job Title",
+        "sec_trend":"Daily response — cumulative & new",
         "top_n_dept":"Top N departments", "top_n_sec":"Top N sections",
         "col_hc":"HC", "col_done":"Submitted", "col_pending":"Pending",
         "col_rate":"Rate", "col_total":"Total",
@@ -161,29 +160,31 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
     box-shadow:0 2px 8px rgba(0,0,0,.1)!important;padding:4px!important;}}
 [data-testid="collapsedControl"] button{{color:{C['navy']}!important;}}
 [data-testid="collapsedControl"] svg{{fill:{C['navy']}!important;stroke:{C['navy']}!important;}}
-[data-testid="stSidebar"]{{background:{C['navy']};border-right:none;}}
-[data-testid="stSidebar"] *{{color:rgba(255,255,255,0.85)!important;}}
+[data-testid="stSidebar"]{{background:#f8fafc;border-right:1px solid {C['border']};}}
+[data-testid="stSidebar"] *{{color:{C['navy']}!important;}}
 [data-testid="stSidebar"] .stMultiSelect>label,
 [data-testid="stSidebar"] .stCheckbox>label,
 [data-testid="stSidebar"] .stDateInput>label{{
-    color:rgba(255,255,255,0.5)!important;font-size:.68rem!important;
+    color:{C['sub']}!important;font-size:.68rem!important;
     font-weight:700!important;text-transform:uppercase!important;letter-spacing:.1em!important;}}
 [data-testid="stSidebar"] [data-baseweb="select"] div,
-[data-testid="stSidebar"] [data-baseweb="input"] input{{
-    background:rgba(255,255,255,0.08)!important;
-    border-color:rgba(255,255,255,0.12)!important;color:white!important;border-radius:4px!important;}}
+[data-testid="stSidebar"] [data-baseweb="input"] input,
+[data-testid="stSidebar"] [data-baseweb="base-input"]{{
+    background:white!important;
+    border-color:{C['line']}!important;color:{C['navy']}!important;border-radius:4px!important;}}
 [data-testid="stSidebar"] .stButton>button{{
-    background:{C['orange']}!important;color:white!important;border:none!important;
+    background:white!important;color:{C['navy']}!important;border:1px solid {C['line']}!important;
     border-radius:4px!important;font-family:'SVN-Helvetica Now',sans-serif!important;
-    font-size:.82rem!important;font-weight:700!important;letter-spacing:.08em!important;
-    text-transform:uppercase!important;padding:.5rem .9rem!important;width:100%!important;}}
-[data-testid="stSidebar"] .stButton>button:hover{{background:{C['orange2']}!important;}}
+    font-size:.75rem!important;font-weight:600!important;
+    padding:.3rem .6rem!important;width:100%!important;}}
+[data-testid="stSidebar"] .stButton>button:hover{{border-color:{C['orange']}!important;color:{C['orange']}!important;}}
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{{background:{C['orange']}!important;color:white!important;border-color:{C['orange']}!important;}}
 .sb-logo{{font-family:'SVN-Helvetica Now',sans-serif;font-size:1.5rem;font-weight:700;
-    color:white!important;letter-spacing:-.02em;text-transform:uppercase;
-    padding:1.5rem 0 1rem;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:1rem;}}
-.sb-logo span{{color:{C['orange']};}}
-.sb-div{{border:none;border-top:1px solid rgba(255,255,255,0.08);margin:1rem 0;}}
-.sb-note{{font-size:.65rem;color:rgba(255,255,255,.3);line-height:1.7;margin-top:.5rem;}}
+    color:{C['navy']}!important;letter-spacing:-.02em;text-transform:uppercase;
+    padding:1.5rem 0 1rem;border-bottom:1px solid {C['line']};margin-bottom:1rem;}}
+.sb-logo span{{color:{C['orange']}!important;}}
+.sb-div{{border:none;border-top:1px solid {C['line']};margin:1rem 0;}}
+.sb-note{{font-size:.65rem;color:{C['sub']};line-height:1.7;margin-top:.5rem;}}
 .stTabs [data-baseweb="tab-list"]{{background:transparent!important;
     border-bottom:2px solid {C['line']}!important;gap:0!important;padding:0!important;}}
 .stTabs [data-baseweb="tab"]{{
@@ -272,7 +273,7 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 
 
 # ══════════════════════════════════════════════════════════════
-# CONSTANTS & HELPERS
+# CONSTANTS & HELPERS — duy nhất 1 định nghĩa mỗi hàm
 # ══════════════════════════════════════════════════════════════
 WF_SHEET_ID = "1pyNwximXg0aZzahEroGdenxnUIRe1XWbnMy_YRULAn0"
 SURVEY_IDS  = {
@@ -282,17 +283,31 @@ SURVEY_IDS  = {
     "3B": "1E7_G8znrD-ITdvs894e-QUg9AJl7SQS3D6FhyYkeUbc",
 }
 
+# Các cột string trong workforce — thứ tự ưu tiên khi search
+WF_STR_COLS = [
+    "section_name_vn", "section_name",
+    "department_name_vn", "department_name",
+    "team_name_vn", "team_name",
+    "division_name_vn", "division_name",
+]
+
 def _url(s): return f"https://docs.google.com/spreadsheets/d/{s}/edit"
+
 def _norm(s):
     s = unicodedata.normalize("NFD", str(s).strip().lower())
     return re.sub(r"[^a-z0-9]", "", "".join(c for c in s if unicodedata.category(c) != "Mn"))
+
 def _clean(v):
     if v is None: return None
     s = str(v).strip()
-    return None if s in ("","nan","None") else s
-def _find_col(df, *kw):
+    return None if s in ("", "nan", "None") else s
+
+def _find_col(df: pd.DataFrame, *keywords) -> str | None:
+    """Tìm cột đầu tiên trong df có chứa bất kỳ keyword nào (case-insensitive)."""
     for col in df.columns:
-        if any(k.lower() in col.lower() for k in kw): return col
+        cl = col.lower()
+        if any(k.lower() in cl for k in keywords):
+            return col
     return None
 
 def pct_badge(p):
@@ -316,57 +331,45 @@ def delta_html(v):
 # LOAD WORKFORCE + MAPPING
 # ══════════════════════════════════════════════════════════════
 @st.cache_data(ttl=600, show_spinner="Đang tải Workforce & Mapping…")
-def load_workforce_and_mapping():
-    """
-    Load 2 sheet từ Google Sheet:
-    1. "Workforce Data" → df_wf: toàn bộ nhân sự với tất cả cột
-    2. "Mapping"        → 2 dict:
-       - MAP_2AB: {survey_value → section_name_vn}
-       - MAP_3AB: {survey_value → (wf_col, wf_val)}
-    """
-    conn = st.connection("workforce", type=GSheetsConnection)
+def load_workforce_and_mapping() -> tuple[pd.DataFrame, dict, dict]:
+    export_url = f"https://docs.google.com/spreadsheets/d/{WF_SHEET_ID}/export?format=xlsx"
     try:
-        df_wf = conn.read(spreadsheet=_url(WF_SHEET_ID), worksheet="Workforce Data")
-    except Exception:
-        df_wf = conn.read(spreadsheet=_url(WF_SHEET_ID))
-
-    try:
-        df_map = conn.read(spreadsheet=_url(WF_SHEET_ID), worksheet="Mapping")
-    except Exception:
+        df_wf = pd.read_excel(export_url, sheet_name="Workforce Data")
+        df_map = pd.read_excel(export_url, sheet_name="Mapping")
+    except Exception as e:
+        st.error(f"Lỗi tải Workforce: {e}")
+        df_wf = pd.DataFrame()
         df_map = pd.DataFrame()
 
-    # ── Chuẩn hóa cột workforce ──
+    # ── Chuẩn hóa workforce ──
     df_wf = df_wf.dropna(how="all").copy()
     df_wf.columns = [str(c).strip() for c in df_wf.columns]
-    str_cols = ["division_name","division_name_vn","department_name","department_name_vn",
-                "section_name","section_name_vn","team_name","team_name_vn",
-                "bu_name","survey_group","jobtitle_name"]
-    for col in str_cols:
+    for col in WF_STR_COLS + ["bu_name", "survey_group", "jobtitle_name"]:
         if col not in df_wf.columns: df_wf[col] = None
         df_wf[col] = df_wf[col].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
     df_wf["status"] = pd.to_numeric(df_wf.get("status", pd.Series()), errors="coerce")
 
     # ── Parse Mapping sheet ──
-    MAP_2AB: dict[str, str]           = {}  # sv_val → section_name_vn
-    MAP_3AB: dict[str, tuple[str,str]]= {}  # sv_val → (wf_col, wf_val)
+    MAP_2AB: dict[str, str]            = {}  # sv_val → wf_value (tìm trên tất cả cột)
+    MAP_3AB: dict[str, tuple[str,str]] = {}  # sv_val → (wf_col, wf_val)
 
     if len(df_map) > 0:
         cols = list(df_map.columns)
 
-        # 2A-2B: cột 0=Survey2A, 1=Survey2B, 2=WF_section_name_vn
+        # 2A-2B: col0=Survey2A, col1=Survey2B, col2=WF_value
         if len(cols) >= 3:
             sub2 = df_map.iloc[:, [0,1,2]].copy()
-            sub2.columns = ["sv2a","sv2b","wf_sec_vn"]
-            sub2 = sub2.dropna(subset=["wf_sec_vn"])
+            sub2.columns = ["sv2a","sv2b","wf_val"]
+            sub2 = sub2.dropna(subset=["wf_val"])
             sub2 = sub2[~sub2["sv2a"].astype(str).str.strip().isin(["Survey-2A",""])]
             for _, r in sub2.iterrows():
-                wf = _clean(str(r["wf_sec_vn"]))
+                wf = _clean(str(r["wf_val"]))
                 if not wf: continue
                 for sv_raw in [r["sv2a"], r["sv2b"]]:
                     sv = _clean(str(sv_raw))
                     if sv: MAP_2AB[sv] = wf
 
-        # 3A-3B: cột 4=Survey3A3B, 5=WF_value, 6=WF_column
+        # 3A-3B: col4=Survey, col5=WF_value, col6=WF_column
         if len(cols) >= 7:
             sub3 = df_map.iloc[:, [4,5,6]].copy()
             sub3.columns = ["sv","wf_val","wf_col"]
@@ -383,136 +386,185 @@ def load_workforce_and_mapping():
 
 
 # ══════════════════════════════════════════════════════════════
-# JOIN SURVEY → MAPPING → WORKFORCE
+# BUILD WF LOOKUP — tìm trên TẤT CẢ cột string
 # ══════════════════════════════════════════════════════════════
-def enrich_survey_with_wf(
-    df_sv_parsed: pd.DataFrame,
-    df_wf: pd.DataFrame,
-    MAP_2AB: dict,
-    MAP_3AB: dict,
-) -> pd.DataFrame:
+def build_wf_lookup(df_wf: pd.DataFrame) -> tuple[dict, dict]:
     """
-    Ánh xạ mỗi survey response sang đúng cột trong workforce rồi JOIN lấy
-    thông tin division/department/section của nhân viên tương ứng.
-
-    Kết quả: mỗi row survey được gắn thêm:
-      wf_division, wf_department, wf_section_vn, wf_team
-
-    Cách hoạt động:
-      - 2A/2B: sv_label → MAP_2AB → section_name_vn →
-               JOIN df_wf ON section_name_vn → lấy division/department/section của nhóm đó
-      - 3A/3B: sv_label → MAP_3AB → (wf_col, wf_val) →
-               JOIN df_wf WHERE df_wf[wf_col] == wf_val → lấy div/dept/section
+    Build two lookups:
+    1. Exact lookup: (column, value) -> dict of wf info
+    2. Fallback lookup: value -> dict of wf info (first match)
     """
-    if len(df_sv_parsed) == 0:
-        df_sv_parsed["wf_division"]   = None
-        df_sv_parsed["wf_department"] = None
-        df_sv_parsed["wf_section_vn"] = None
-        df_sv_parsed["wf_team"]       = None
-        return df_sv_parsed
+    lookup_exact = {}
+    lookup_fallback = {}
 
-    results = []
+    for col in WF_STR_COLS:
+        if col not in df_wf.columns: continue
+        grp = df_wf[df_wf[col].notna()].groupby(col, dropna=False)
+        for val, rows in grp:
+            v = str(val).strip()
+            if not v or v in ("nan","None",""): continue
+            
+            r0 = rows.iloc[0]
+            info = {
+                "wf_division":   r0.get("division_name"),
+                "wf_department": r0.get("department_name"),
+                "wf_section_vn": r0.get("section_name_vn"),
+                "wf_team":       r0.get("team_name"),
+            }
+            
+            v_norm = _norm(v)
+            if (col, v_norm) not in lookup_exact:
+                lookup_exact[(col, v_norm)] = info
+                
+            if v_norm not in lookup_fallback:
+                lookup_fallback[v_norm] = info
+                
+    return lookup_exact, lookup_fallback
 
-    # Pre-build lookup: (wf_col, wf_val) → (division_name, department_name, section_name_vn, team_name)
-    # Dùng first-match (representative row) cho mỗi key
-    wf_lookup: dict[tuple, dict] = {}
-    for _, row in df_wf.iterrows():
-        for col in ["section_name_vn","department_name","department_name_vn",
-                    "section_name","team_name","division_name","division_name_vn"]:
-            v = _clean(str(row.get(col, "") or ""))
-            if v:
-                key = (col, v)
-                if key not in wf_lookup:
-                    wf_lookup[key] = {
-                        "wf_division":   row.get("division_name"),
-                        "wf_department": row.get("department_name"),
-                        "wf_section_vn": row.get("section_name_vn"),
-                        "wf_team":       row.get("team_name"),
-                    }
 
-    for _, row in df_sv_parsed.iterrows():
-        sv_val   = _clean(str(row.get("sv_label", "") or ""))
-        grp      = str(row.get("survey_group", ""))
-        wf_info  = {"wf_division":None,"wf_department":None,"wf_section_vn":None,"wf_team":None}
+# ══════════════════════════════════════════════════════════════
+# ENRICH SURVEY → WORKFORCE INFO
+# ══════════════════════════════════════════════════════════════
+def enrich_survey(df_sv: pd.DataFrame, MAP_2AB: dict, MAP_3AB: dict,
+                  lookup_exact: dict, lookup_fallback: dict) -> pd.DataFrame:
+    """
+    Gắn wf_division/wf_department/wf_section_vn/wf_team vào mỗi row survey.
+
+    Flow:
+      2A/2B: sv_label → MAP_2AB → wf_value → lookup_fallback → thông tin WF
+      3A/3B: sv_label → MAP_3AB → (wf_col, wf_val) → lookup_exact(wf_col, wf_val) → thông tin WF
+    """
+    if len(df_sv) == 0:
+        for c in ["wf_division","wf_department","wf_section_vn","wf_team"]:
+            df_sv[c] = None
+        return df_sv
+
+    # Normalized lookup cho fuzzy match
+    map2ab_norm = {_norm(k): v for k, v in MAP_2AB.items()}
+    map3ab_norm = {_norm(k): v for k, v in MAP_3AB.items()}
+
+    rows = []
+    for _, row in df_sv.iterrows():
+        sv_val = _clean(str(row.get("sv_label","") or ""))
+        grp    = str(row.get("survey_group",""))
+        wf_info = {}
 
         if sv_val:
+            sv_norm = _norm(sv_val)
             if grp in ("2A","2B"):
-                # MAP_2AB: sv_val → section_name_vn
-                sec_vn = MAP_2AB.get(sv_val)
-                if not sec_vn:
-                    # normalized fallback
-                    sv_n = _norm(sv_val)
-                    sec_vn = next((v for k,v in MAP_2AB.items() if _norm(k)==sv_n), None)
-                if sec_vn:
-                    info = wf_lookup.get(("section_name_vn", sec_vn))
-                    if info: wf_info = info
+                # MAP_2AB: sv_val → wf_value → lookup
+                wf_val = map2ab_norm.get(sv_norm)
+                if wf_val:
+                    wf_info = lookup_fallback.get(_norm(wf_val), {})
+                else:
+                    wf_info = lookup_fallback.get(sv_norm, {})
 
             elif grp in ("3A","3B"):
-                # MAP_3AB: sv_val → (wf_col, wf_val)
-                mapping = MAP_3AB.get(sv_val)
-                if not mapping:
-                    sv_n = _norm(sv_val)
-                    mapping = next((v for k,v in MAP_3AB.items() if _norm(k)==sv_n), None)
+                # MAP_3AB: sv_val → (wf_col, wf_val) → lookup exact column
+                mapping = map3ab_norm.get(sv_norm)
                 if mapping:
-                    wfc, wfv = mapping
-                    info = wf_lookup.get((wfc, wfv))
-                    if info: wf_info = info
+                    wf_col, wf_val = mapping
+                    wf_col_norm = wf_col.strip()
+                    wf_info = lookup_exact.get((wf_col_norm, _norm(wf_val)))
+                    if not wf_info:
+                        wf_info = lookup_fallback.get(_norm(wf_val), {})
+                else:
+                    wf_info = lookup_fallback.get(sv_norm, {})
 
         r = row.to_dict()
-        r.update(wf_info)
-        results.append(r)
+        r.update({
+            "wf_division":   wf_info.get("wf_division"),
+            "wf_department": wf_info.get("wf_department"),
+            "wf_section_vn": wf_info.get("wf_section_vn"),
+            "wf_team":       wf_info.get("wf_team"),
+        })
+        rows.append(r)
 
-    return pd.DataFrame(results)
-
-
-# ══════════════════════════════════════════════════════════════
-# HC COMPUTATION — từ workforce trực tiếp (mẫu số chính xác)
-# ══════════════════════════════════════════════════════════════
-def compute_hc_by_col(df_wf_filtered: pd.DataFrame, group_col: str) -> pd.Series:
-    """Đếm HC theo một cột workforce. Trả về Series indexed by cột đó."""
-    return (df_wf_filtered[df_wf_filtered[group_col].notna()]
-            .groupby(group_col).size().rename("hc"))
+    return pd.DataFrame(rows)
 
 
 # ══════════════════════════════════════════════════════════════
-# SURVEY PARSING (chỉ lấy timestamp + phòng ban)
+# SURVEY PARSING — chỉ extract timestamp + sv_label
 # ══════════════════════════════════════════════════════════════
-def _parse_survey_raw(df: pd.DataFrame, group: str) -> pd.DataFrame:
-    """Parse raw Google Form response → chỉ lấy timestamp + sv_label."""
+def _parse_2ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
+    """
+    2A/2B form structure (exact cols from demo):
+      col[7]  'Phòng Ban bạn đang làm việc?' → loại (Vùng / GXT / KTC / Warehouse)
+      col[8]  'Bạn thuộc Vùng nào?'          → Vùng cụ thể
+      col[9]  'Bạn thuộc KCT/TTCT nào?'      → KTC cụ thể
+      col[10] 'Bạn thuộc bộ phận nào?'       → GXT bộ phận
+      col[11] 'Warehouse/Fulfillment (KHL)'   → WH bộ phận
+    sv_label = giá trị sub-question (cụ thể nhất)
+    """
+    col_ts   = _find_col(df, "timestamp", "thời gian")
+    col_pb   = _find_col(df, "phòng ban")
+    col_vung = _find_col(df, "vùng nào")
+    col_ktc  = _find_col(df, "ktc", "ttct", "tttc")
+    col_gxt  = _find_col(df, "bộ phận nào")
+    col_wh   = _find_col(df, "warehouse", "fulfillment", "khl")
+
     rows = []
-    col_ts   = _find_col(df,"timestamp","thời gian")
-    col_pb   = _find_col(df,"phòng ban","phong ban")
-    col_vung = _find_col(df,"thuộc vùng")
-    col_ktc  = _find_col(df,"kct","ttct","ktc/")
-    col_gxt  = _find_col(df,"bộ phận nào")
-    col_wh   = _find_col(df,"warehouse","fulfillment","khl")
-    col_dept = _find_col(df,"bạn thuộc","ban thuoc")
+    for _, row in df.iterrows():
+        ts = pd.to_datetime(row[col_ts], errors="coerce") if col_ts else pd.NaT
+        pb = _clean(row[col_pb]) if col_pb else None
+        sv_label = None
 
+        if pb:
+            pl = pb.lower()
+            if "warehouse" in pl or "fulfillment" in pl:
+                sv_label = _clean(row[col_wh]) if col_wh else None
+            elif "giao hàng nặng" in pl or "gxt" in pl:
+                sv_label = _clean(row[col_gxt]) if col_gxt else None
+            elif ("kho trung chuyển" in pl or "ktc" in pl or "tttc" in pl) \
+                    and "vùng" not in pl and "bưu cục" not in pl:
+                # Chỉ vào nhánh KTC khi KHÔNG phải "Vùng (Bưu Cục, KTC thuộc Vùng)"
+                sv_label = _clean(row[col_ktc]) if col_ktc else None
+            else:
+                # Vùng (bưu cục, KTC thuộc Vùng) hoặc bất kỳ trường hợp còn lại
+                sv_label = _clean(row[col_vung]) if col_vung else None
+
+        rows.append({"timestamp": ts, "survey_group": group, "sv_label": sv_label})
+    return pd.DataFrame(rows)
+
+
+def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
+    """
+    3A/3B form structure (exact cols from demo):
+      col[7]  'Phòng Ban bạn đang làm việc?' → Division lớn (Khối CT, Khối NL...)
+      col[8]  'Bạn thuộc?'                   → Department/Section cụ thể bên trong Division đó
+      col[9..13] 'Bạn thuộc?.1 ... .5'       → Sub-sub questions cho các Division khác nhau
+
+    sv_label ưu tiên: col[8] 'Bạn thuộc?' (đây là dept/section cụ thể nhất)
+    Nếu không có → fallback col[7] 'Phòng Ban' (tên Division)
+    """
+    col_ts  = _find_col(df, "timestamp", "thời gian")
+    col_pb  = _find_col(df, "phòng ban")   # col 7: Division lớn
+
+    # col 8..13: 'Bạn thuộc?' và các biến thể .1 .2 .3 .4 .5
+    # Tìm tất cả cột "Bạn thuộc?" (không phải câu hỏi survey về gắn bó)
+    thuoc_cols = [
+        c for c in df.columns
+        if "bạn thuộc" in c.lower() and "gắn bó" not in c.lower()
+        and "thuộc về" not in c.lower()
+    ]
+
+    rows = []
     for _, row in df.iterrows():
         ts = pd.to_datetime(row[col_ts], errors="coerce") if col_ts else pd.NaT
 
-        if group in ("2A","2B"):
-            pb  = _clean(row[col_pb]) if col_pb else None
-            sv_label = None
-            if pb:
-                pl = pb.lower()
-                if "warehouse" in pl or "fulfillment" in pl:
-                    sv_label = _clean(row[col_wh]) if col_wh else pb
-                elif "giao hàng nặng" in pl or "gxt" in pl:
-                    sv_label = _clean(row[col_gxt]) if col_gxt else pb
-                elif "kho trung chuyển" in pl or "trung tâm" in pl or "ktc" in pl:
-                    sv_label = _clean(row[col_ktc]) if col_ktc else pb
-                else:
-                    sv_label = _clean(row[col_vung]) if col_vung else pb
-        else:
-            # 3A/3B: lấy giá trị từ câu "Bạn thuộc..."
-            sv_label = _clean(row[col_dept]) if col_dept else None
-            # fallback: câu "Phòng ban"
-            if not sv_label and col_pb:
-                sv_label = _clean(row[col_pb])
+        # Lấy giá trị từ các cột "Bạn thuộc?" — lấy giá trị không null đầu tiên
+        sv_label = None
+        for col in thuoc_cols:
+            v = _clean(row[col])
+            if v:
+                sv_label = v
+                break
+
+        # Fallback: lấy Division lớn từ col_pb
+        if not sv_label and col_pb:
+            sv_label = _clean(row[col_pb])
 
         rows.append({"timestamp": ts, "survey_group": group, "sv_label": sv_label})
-
     return pd.DataFrame(rows)
 
 
@@ -536,16 +588,13 @@ def load_all_surveys_enriched(
     _map_2ab: dict,
     _map_3ab: dict,
 ) -> tuple[pd.DataFrame, list]:
-    """
-    Load tất cả survey groups, parse sv_label, enrich với workforce info.
-    """
     parts, warnings = [], []
     for g in ALL_GROUPS:
         raw, err = _load_raw_survey(g)
         if err:   warnings.append(f"[{g}] {err}"); continue
         if len(raw) == 0: continue
         try:
-            parsed = _parse_survey_raw(raw, g)
+            parsed = _parse_2ab(raw, g) if g in ("2A","2B") else _parse_3ab(raw, g)
             parts.append(parsed)
         except Exception as e:
             warnings.append(f"[{g}] Parse error: {str(e)[:100]}")
@@ -559,8 +608,11 @@ def load_all_surveys_enriched(
     df_all = pd.concat(parts, ignore_index=True)
     df_all["timestamp"] = pd.to_datetime(df_all["timestamp"], errors="coerce")
 
-    # Enrich: gắn division/department/section từ workforce
-    df_enriched = enrich_survey_with_wf(df_all, _df_wf, _map_2ab, _map_3ab)
+    # Build WF lookup từ tất cả cột string
+    lookup_exact, lookup_fallback = build_wf_lookup(_df_wf)
+
+    # Enrich
+    df_enriched = enrich_survey(df_all, _map_2ab, _map_3ab, lookup_exact, lookup_fallback)
     return df_enriched, warnings
 
 
@@ -600,7 +652,6 @@ for w in warnings: st.warning(w)
 with st.sidebar:
     st.markdown('<div class="sb-logo">GHN <span>EES</span></div>', unsafe_allow_html=True)
 
-    # Language
     lang = st.session_state["lang"]
     c1, c2 = st.columns(2)
     with c1:
@@ -615,11 +666,8 @@ with st.sidebar:
             st.session_state["lang"] = "EN"; st.rerun()
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
-    if st.button(T("refresh")):
+    if st.button(T("refresh"), use_container_width=True):
         st.cache_data.clear(); st.rerun()
-
-    st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
-    only_act = st.checkbox(T("only_active"), value=True)
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     grp_labels = T("group_labels")
@@ -630,10 +678,8 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
 
-    # Cascade filter — dựa vào workforce đã filter theo survey_group
     wf_base = df_wf_raw.copy()
     if sel_groups: wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
-    if only_act:   wf_base = wf_base[wf_base["status"] == 1]
 
     div_opts  = sorted(x for x in wf_base["division_name"].dropna().unique() if x)
     sel_div   = st.multiselect(T("division_lbl"), div_opts)
@@ -660,15 +706,12 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════
 # APPLY FILTERS
 # ══════════════════════════════════════════════════════════════
-# Workforce (mẫu số HC)
 df_wf = df_wf_raw.copy()
 if sel_groups: df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
-if only_act:   df_wf = df_wf[df_wf["status"] == 1]
 if sel_div:    df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
 if sel_dept:   df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
 if sel_sec:    df_wf = df_wf[df_wf["section_name_vn"].isin(sel_sec)]
 
-# Survey (tử số) — filter theo wf_* columns đã enrich
 df_sv = df_sv_raw.copy()
 if sel_groups: df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
 if sel_div:    df_sv = df_sv[df_sv["wf_division"].isin(sel_div)]
@@ -678,20 +721,17 @@ if date_rng and isinstance(date_rng,(tuple,list)) and len(date_rng)==2:
     d0, d1 = date_rng
     df_sv = df_sv[(df_sv["timestamp"].dt.date>=d0) & (df_sv["timestamp"].dt.date<=d1)
                   | df_sv["timestamp"].isna()]
-
-
 # ══════════════════════════════════════════════════════════════
 # KPI
 # ══════════════════════════════════════════════════════════════
 today = datetime.now().date(); yesterday = today - timedelta(days=1)
-total_hc  = len(df_wf)
-total_rs  = len(df_sv)
-pct_done  = (total_rs / total_hc * 100) if total_hc > 0 else 0
-pending   = max(total_hc - total_rs, 0)
+total_hc = len(df_wf); total_rs = len(df_sv)
+pct_done = (total_rs/total_hc*100) if total_hc>0 else 0
+pending  = max(total_hc-total_rs, 0)
 n_today = n_yest = 0
 if df_sv["timestamp"].notna().any():
     _d = df_sv["timestamp"].dt.date
-    n_today = int((_d == today).sum()); n_yest = int((_d == yesterday).sum())
+    n_today = int((_d==today).sum()); n_yest = int((_d==yesterday).sum())
 
 grp_lbl = ", ".join([f"{g} · {T('group_labels')[g]}" for g in (sel_groups or ALL_GROUPS)])
 st.markdown(f"""
@@ -731,33 +771,36 @@ st.markdown(f"""
 def build_progress(wf_col: str, sv_col: str, label: str) -> pd.DataFrame:
     """
     HC   = workforce grouped by wf_col
-    Resp = survey grouped by sv_col (đã enrich từ workforce)
-    Merge → tính pct
+    Resp = survey enriched grouped by sv_col (wf_* columns)
     """
+    df_wf[wf_col] = df_wf[wf_col].fillna("Chưa xác định").astype(str).str.strip().replace({"nan":"Chưa xác định", "None":"Chưa xác định", "":"Chưa xác định"})
+    if sv_col in df_sv.columns:
+        df_sv[sv_col] = df_sv[sv_col].fillna("Chưa xác định").astype(str).str.strip().replace({"nan":"Chưa xác định", "None":"Chưa xác định", "":"Chưa xác định"})
+
     hc = (df_wf[df_wf[wf_col].notna()]
           .groupby(wf_col).size().rename("hc").reset_index()
           .rename(columns={wf_col: label}))
 
-    rs_col = sv_col if sv_col in df_sv.columns else None
-    if rs_col and len(df_sv) > 0:
-        rs = (df_sv[df_sv[rs_col].notna()]
-              .groupby(rs_col).size().rename("responses").reset_index()
-              .rename(columns={rs_col: label}))
+    if sv_col in df_sv.columns and len(df_sv) > 0:
+        rs = (df_sv[df_sv[sv_col].notna()]
+              .groupby(sv_col).size().rename("responses").reset_index()
+              .rename(columns={sv_col: label}))
     else:
         rs = pd.DataFrame(columns=[label, "responses"])
 
-    out = hc.merge(rs, on=label, how="left")
+    out = hc.merge(rs, on=label, how="outer")
+    out["hc"]        = out["hc"].fillna(0).astype(int)
     out["responses"] = out["responses"].fillna(0).astype(int)
     out["pending"]   = (out["hc"] - out["responses"]).clip(lower=0)
-    out["pct"]       = (out["responses"] / out["hc"].replace(0,pd.NA) * 100).fillna(0).round(1)
-    return out.sort_values("pct", ascending=False).reset_index(drop=True)
+    out["pct"]       = out.apply(lambda r: (r["responses"] / r["hc"] * 100) if r["hc"] > 0 else 100.0 if r["responses"] > 0 else 0.0, axis=1).round(1)
+    return out.sort_values("hc", ascending=False).reset_index(drop=True)
 
 
 # ══════════════════════════════════════════════════════════════
 # CHART & TABLE HELPERS
 # ══════════════════════════════════════════════════════════════
 def render_chart(df, label_col, h=360):
-    if len(df) == 0: return go.Figure()
+    if len(df)==0: return go.Figure()
     avg = df["pct"].mean()
     def bc(p): return C["green"] if p>=75 else C["blue"] if p>=40 else C["orange"] if p>0 else C["muted"]
     fig = go.Figure()
@@ -807,9 +850,9 @@ def render_table(df, label_col):
   <td class="r">{pct_badge(r['pct'])}</td>
   <td style="min-width:90px;padding-left:4px">{prog_bar(r['pct'])}</td>
 </tr>"""
-    t_hc = int(df["hc"].sum()); t_rs = int(df["responses"].sum())
-    t_pnd = int(df["pending"].sum())
-    t_pct = (t_rs/t_hc*100) if t_hc>0 else 0
+    t_hc=int(df["hc"].sum()); t_rs=int(df["responses"].sum())
+    t_pnd=int(df["pending"].sum())
+    t_pct=(t_rs/t_hc*100) if t_hc>0 else 0
     rows += f"""
 <tr class="foot">
   <td></td><td>{T('col_total')}</td>
@@ -843,59 +886,63 @@ tab1, tab2, tab3, tab4 = st.tabs([
     T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_trend"),
 ])
 
-# ─── TAB 1: DIVISION ──────────────────────────────────────────
 with tab1:
-    # HC: từ workforce → group division_name
-    # Resp: từ survey enriched → group wf_division
     div_df = build_progress("division_name", "wf_division", "Division")
     def _t1():
         if len(div_df)==0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
-        c1,c2 = st.columns([55,45])
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+        c1,c2=st.columns([55,45])
         with c1: st.plotly_chart(render_chart(div_df,"Division",h=max(340,len(div_df)*52+70)),use_container_width=True)
         with c2: st.markdown(render_table(div_df,"Division"),unsafe_allow_html=True)
     section_wrap(T("sec_div"),f"{len(div_df)} {T('divisions')} · HC {total_hc:,}",_t1)
 
-# ─── TAB 2: DEPARTMENT ────────────────────────────────────────
 with tab2:
     dept_df = build_progress("department_name", "wf_department", "Department")
     def _t2():
         if len(dept_df)==0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
-        n = st.slider(T("top_n_dept"),5,min(60,len(dept_df)),min(20,len(dept_df)),key="dn")
-        show = dept_df.head(n)
-        c1,c2 = st.columns([55,45])
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+        min_v = min(1, len(dept_df))
+        max_v = len(dept_df)
+        if min_v == max_v:
+            n = max_v
+        else:
+            n=st.slider(T("top_n_dept"),min_v,max_v,min(20,max_v),key="dn")
+        show=dept_df.head(n)
+        c1,c2=st.columns([55,45])
         with c1: st.plotly_chart(render_chart(show,"Department",h=max(340,len(show)*48+70)),use_container_width=True)
         with c2: st.markdown(render_table(show,"Department"),unsafe_allow_html=True)
     section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
 
-# ─── TAB 3: SECTION / VÙNG ────────────────────────────────────
 with tab3:
     sec_df = build_progress("section_name_vn", "wf_section_vn", "Section")
     def _t3():
         if len(sec_df)==0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>', unsafe_allow_html=True); return
-        n2 = st.slider(T("top_n_sec"),5,min(80,len(sec_df)),min(25,len(sec_df)),key="sn")
-        show2 = sec_df.head(n2)
-        c1,c2 = st.columns([55,45])
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+        min_v = min(1, len(sec_df))
+        max_v = len(sec_df)
+        if min_v == max_v:
+            n2 = max_v
+        else:
+            n2=st.slider(T("top_n_sec"),min_v,max_v,min(25,max_v),key="sn")
+        show2=sec_df.head(n2)
+        c1,c2=st.columns([55,45])
         with c1: st.plotly_chart(render_chart(show2,"Section",h=max(340,len(show2)*46+70)),use_container_width=True)
         with c2: st.markdown(render_table(show2,"Section"),unsafe_allow_html=True)
-    section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')}",_t3)
+    section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
 
-# ─── TAB 4: TREND ─────────────────────────────────────────────
 with tab4:
     def _t4():
         if not df_sv["timestamp"].notna().any():
             st.markdown(f'<div class="no-data">{T("no_ts")}</div>',unsafe_allow_html=True); return
-        tdf = df_sv.dropna(subset=["timestamp"]).copy()
-        tdf["_d"] = tdf["timestamp"].dt.date
-        daily = (tdf.groupby("_d").size().rename("new").reset_index()
-                 .sort_values("_d").reset_index(drop=True))
-        daily["cum"]     = daily["new"].cumsum()
-        daily["pct_cum"] = (daily["cum"]/total_hc*100) if total_hc>0 else 0
-        daily["lbl"]     = daily["_d"].apply(lambda d: d.strftime("%d/%m"))
-        fig_t = make_subplots(specs=[[{"secondary_y":True}]])
-        max_new = daily["new"].max() or 1
+        tdf=df_sv.dropna(subset=["timestamp"]).copy()
+        tdf["_d"]=tdf["timestamp"].dt.date
+        daily=(tdf.groupby("_d").size().rename("new").reset_index()
+               .sort_values("_d").reset_index(drop=True))
+        daily["cum"]=daily["new"].cumsum()
+        daily["pct_cum"]=(daily["cum"]/total_hc*100) if total_hc>0 else 0
+        daily["lbl"]=daily["_d"].apply(lambda d:d.strftime("%d/%m"))
+        fig_t=make_subplots(specs=[[{"secondary_y":True}]])
+        max_new=daily["new"].max() or 1
         fig_t.add_trace(go.Bar(
             x=daily["lbl"],y=daily["new"],
             marker_color=[f"rgba(0,111,173,{0.3+0.6*(v/max_new)})" for v in daily["new"]],
