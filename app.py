@@ -33,20 +33,83 @@ C = {
 }
 
 GROUP_LABELS = {
-    "2A": "NV Vận hành Kho",
-    "2B": "Quản lý Tuyến đầu",
-    "3A": "NV Văn phòng HO",
+    "2A": "Nhóm Nhân viên Vận hành Kho",
+    "2B": "Nhóm Quản lý Tuyến đầu",
+    "3A": "Nhóm Nhân viên Văn phòng HO",
     "3B": "Manager / Director HO",
 }
 ALL_GROUPS = list(GROUP_LABELS.keys())
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
-html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
+/* ── Custom Font ── */
+@font-face {{
+  font-family: 'SVN-Helvetica Now';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./app/static/fonts/SVN-HelveticaNowDisplay-Regular.ttf') format('truetype');
+}}
+@font-face {{
+  font-family: 'SVN-Helvetica Now';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./app/static/fonts/SVN-HelveticaNowDisplay-Medium.ttf') format('truetype');
+}}
+@font-face {{
+  font-family: 'SVN-Helvetica Now';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./app/static/fonts/SVN-HelveticaNowDisplay-Bold.ttf') format('truetype');
+}}
+
+/* ── Force Light Theme ── */
+html, body, [data-testid="stAppViewContainer"],
+[data-testid="stApp"], .stApp {{
+    background-color: {C['slate']} !important;
+    color: {C['text']} !important;
+    color-scheme: light !important;
+}}
+[data-testid="stHeader"] {{
+    background-color: transparent !important;
+}}
+
+/* ── Base Typography ── */
+html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!important;color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
 .stApp{{background:{C['slate']};}}
 .block-container{{max-width:1320px;padding:0 2rem 3rem;}}
 #MainMenu,footer,header{{visibility:hidden;}}
+
+/* ── Sidebar Toggle Fix ── */
+[data-testid="stSidebar"][aria-expanded="false"] {{
+    margin-left: 0 !important;
+    min-width: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+}}
+[data-testid="collapsedControl"] {{
+    display: flex !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0.5rem !important;
+    left: 0.5rem !important;
+    z-index: 999999 !important;
+    color: {C['navy']} !important;
+    background: {C['bg']} !important;
+    border: 1px solid {C['border']} !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    padding: 4px !important;
+}}
+[data-testid="collapsedControl"] button {{
+    color: {C['navy']} !important;
+}}
+[data-testid="collapsedControl"] svg {{
+    fill: {C['navy']} !important;
+    stroke: {C['navy']} !important;
+}}
 
 /* Sidebar */
 [data-testid="stSidebar"]{{background:{C['navy']};border-right:none;}}
@@ -64,12 +127,12 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 }}
 [data-testid="stSidebar"] .stButton>button{{
     background:{C['orange']}!important;color:white!important;border:none!important;
-    border-radius:4px!important;font-family:'Barlow Condensed',sans-serif!important;
+    border-radius:4px!important;font-family:'SVN-Helvetica Now',sans-serif!important;
     font-size:.85rem!important;font-weight:700!important;letter-spacing:.12em!important;
     text-transform:uppercase!important;padding:.55rem 1rem!important;width:100%!important;
 }}
 [data-testid="stSidebar"] .stButton>button:hover{{background:{C['orange2']}!important;}}
-.sb-logo{{font-family:'Barlow Condensed',sans-serif;font-size:1.5rem;font-weight:900;
+.sb-logo{{font-family:'SVN-Helvetica Now',sans-serif;font-size:1.5rem;font-weight:700;
     color:white!important;letter-spacing:-.02em;text-transform:uppercase;
     padding:1.5rem 0 1rem;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:1.5rem;}}
 .sb-logo span{{color:{C['orange']};}}
@@ -80,7 +143,7 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 .stTabs [data-baseweb="tab-list"]{{background:transparent!important;
     border-bottom:2px solid {C['line']}!important;gap:0!important;padding:0!important;}}
 .stTabs [data-baseweb="tab"]{{
-    font-family:'Barlow Condensed',sans-serif!important;font-size:.85rem!important;
+    font-family:'SVN-Helvetica Now',sans-serif!important;font-size:.85rem!important;
     font-weight:700!important;letter-spacing:.1em!important;text-transform:uppercase!important;
     color:{C['muted']}!important;padding:.9rem 1.6rem!important;
     border-bottom:3px solid transparent!important;margin-bottom:-2px!important;
@@ -103,18 +166,18 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 .hdr-accent{{width:5px;background:{C['orange']};flex-shrink:0;position:relative;z-index:1;}}
 .hdr-body{{padding:28px 40px;flex:1;position:relative;z-index:1;
     display:flex;justify-content:space-between;align-items:flex-end;}}
-.hdr-label{{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;
+.hdr-label{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.72rem;font-weight:700;
     letter-spacing:.2em;text-transform:uppercase;color:{C['orange']};margin-bottom:10px;}}
-.hdr-title{{font-family:'Barlow Condensed',sans-serif;
-    font-size:clamp(2.2rem,4vw,3rem);font-weight:900;color:white;
+.hdr-title{{font-family:'SVN-Helvetica Now',sans-serif;
+    font-size:clamp(2.2rem,4vw,3rem);font-weight:700;color:white;
     line-height:1;letter-spacing:-.02em;text-transform:uppercase;margin:0 0 10px;}}
 .hdr-title .acc{{color:{C['orange']};}}
-.hdr-desc{{font-size:.88rem;color:rgba(255,255,255,0.5);font-weight:300;
+.hdr-desc{{font-size:.88rem;color:rgba(255,255,255,0.5);font-weight:400;
     letter-spacing:.01em;max-width:540px;line-height:1.6;}}
 .hdr-meta{{text-align:right;}}
-.hdr-meta .ml{{font-family:'Barlow Condensed',sans-serif;font-size:.65rem;
+.hdr-meta .ml{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.65rem;
     letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:4px;}}
-.hdr-meta .mv{{font-size:.85rem;font-weight:600;color:rgba(255,255,255,.75);}}
+.hdr-meta .mv{{font-size:.85rem;font-weight:500;color:rgba(255,255,255,.75);}}
 
 /* Group Selector Pills (filter bar) */
 .filter-bar{{
@@ -122,7 +185,7 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
     padding:14px 20px;margin-bottom:20px;
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
 }}
-.filter-label{{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;
+.filter-label{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.72rem;
     font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:{C['muted']};}}
 
 /* KPI Grid */
@@ -134,9 +197,9 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 .kpi-cell.kc-blue::before  {{background:{C['blue']};}}
 .kpi-cell.kc-orange::before{{background:{C['orange']};}}
 .kpi-cell.kc-green::before {{background:{C['green']};}}
-.kpi-lbl{{font-family:'Barlow Condensed',sans-serif;font-size:.7rem;font-weight:700;
+.kpi-lbl{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.7rem;font-weight:700;
     letter-spacing:.14em;text-transform:uppercase;color:{C['muted']};margin-bottom:12px;}}
-.kpi-val{{font-family:'Barlow Condensed',sans-serif;font-size:3rem;font-weight:900;
+.kpi-val{{font-family:'SVN-Helvetica Now',sans-serif;font-size:3rem;font-weight:700;
     line-height:1;letter-spacing:-.03em;color:{C['navy']};margin-bottom:6px;}}
 .kpi-cell.kc-blue .kpi-val  {{color:{C['blue']};}}
 .kpi-cell.kc-orange .kpi-val{{color:{C['orange']};}}
@@ -148,8 +211,8 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 .scard{{background:{C['bg']};border:1px solid {C['border']};margin-bottom:1.5rem;}}
 .scard-head{{padding:16px 26px;border-bottom:1px solid {C['line']};
     display:flex;align-items:center;gap:.8rem;}}
-.scard-head .sh-t{{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;
-    font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:{C['navy']};
+.scard-head .sh-t{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;
+    font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:{C['navy']};
     white-space:nowrap;}}
 .scard-head .sh-r{{flex:1;height:1px;background:{C['line']};}}
 .scard-head .sh-meta{{font-size:.75rem;color:{C['muted']};white-space:nowrap;}}
@@ -158,7 +221,7 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 /* Data Table */
 .dtbl{{width:100%;border-collapse:collapse;font-size:.83rem;}}
 .dtbl thead tr{{border-bottom:2px solid {C['navy']};}}
-.dtbl th{{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;
+.dtbl th{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.68rem;font-weight:700;
     letter-spacing:.12em;text-transform:uppercase;color:{C['sub']};
     padding:8px 10px 10px;text-align:left;white-space:nowrap;background:transparent;}}
 .dtbl th.r{{text-align:right;}}
@@ -166,16 +229,16 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 .dtbl tbody tr:hover{{background:{C['slate']};}}
 .dtbl td{{padding:9px 10px;vertical-align:middle;color:{C['text']};}}
 .dtbl td.r{{text-align:right;font-variant-numeric:tabular-nums;font-size:.82rem;}}
-.dtbl td.nm{{font-weight:600;max-width:260px;overflow:hidden;
+.dtbl td.nm{{font-weight:500;max-width:260px;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap;}}
 .dtbl .foot td{{border-top:2px solid {C['navy']};padding-top:11px;
     font-weight:700;color:{C['navy']};background:transparent;}}
-.dtbl .rnk{{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;
+.dtbl .rnk{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;
     font-weight:700;color:{C['muted']};text-align:right;width:28px;}}
 .prog-w{{height:5px;background:{C['line']};border-radius:1px;overflow:hidden;min-width:80px;}}
 .prog-f{{height:5px;border-radius:1px;transition:width .3s ease;}}
-.pbg{{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:.82rem;
-    font-weight:800;letter-spacing:.03em;padding:2px 8px;border-radius:2px;}}
+.pbg{{display:inline-block;font-family:'SVN-Helvetica Now',sans-serif;font-size:.82rem;
+    font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:2px;}}
 .bg-g{{background:{C['green2']};color:{C['green']};}}
 .bg-b{{background:#E8F4FD;color:{C['blue']};}}
 .bg-r{{background:{C['red2']};color:{C['red']};}}
@@ -183,7 +246,7 @@ html,body,[class*="css"]{{font-family:'DM Sans',system-ui,sans-serif!important;c
 
 /* No-data state */
 .no-data{{text-align:center;padding:48px 20px;color:{C['muted']};
-    font-family:'Barlow Condensed',sans-serif;font-size:1rem;
+    font-family:'SVN-Helvetica Now',sans-serif;font-size:1rem;
     letter-spacing:.1em;text-transform:uppercase;}}
 </style>
 """, unsafe_allow_html=True)
@@ -522,7 +585,7 @@ st.markdown(f"""
 <div style="background:{C['bg']};border:1px solid {C['border']};
     border-left:4px solid {C['orange']};padding:10px 20px;margin-bottom:20px;
     font-size:.82rem;color:{C['sub']};">
-  <strong style="color:{C['navy']};font-family:'Barlow Condensed',sans-serif;
+  <strong style="color:{C['navy']};font-family:'SVN-Helvetica Now',sans-serif;
     font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;">Đang xem:</strong>
   &nbsp;{grp_lbl}
 </div>
@@ -582,7 +645,7 @@ def render_chart(df, label_col, h=360):
         marker_color=[bc(p) for p in df["pct"]],marker_line_width=0,
         text=[f"  {p:.1f}%" for p in df["pct"]],
         textposition="outside",
-        textfont=dict(size=10,color=C["text"],family="Barlow Condensed"),
+        textfont=dict(size=10,color=C["text"],family="SVN-Helvetica Now"),
         hovertemplate="<b>%{y}</b><br>%{x:.1f}%  ·  %{customdata[0]:,} / %{customdata[1]:,}<extra></extra>",
         customdata=list(zip(df["responses"],df["hc"])),
         showlegend=False,
@@ -593,7 +656,7 @@ def render_chart(df, label_col, h=360):
     fig.update_layout(
         paper_bgcolor="white",plot_bgcolor="white",height=h,
         margin=dict(l=260,r=120,t=24,b=24),barmode="overlay",bargap=0.32,
-        font=dict(family="DM Sans",size=11,color=C["text"]),
+        font=dict(family="SVN-Helvetica Now",size=11,color=C["text"]),
         xaxis=dict(range=[0,min(max(df["pct"].max()+22,110),130)],dtick=25,
                    showgrid=True,gridcolor=C["line"],zeroline=False,
                    title="% Hoàn thành",title_font=dict(size=10,color=C["muted"]),
@@ -723,7 +786,7 @@ with tab4:
             paper_bgcolor="white",plot_bgcolor="white",
             height=360,bargap=0.25,showlegend=True,
             margin=dict(l=40,r=70,t=16,b=52),
-            font=dict(family="DM Sans",size=11,color=C["text"]),
+            font=dict(family="SVN-Helvetica Now",size=11,color=C["text"]),
             legend=dict(orientation="h",y=1.06,x=1,xanchor="right",
                         bgcolor="rgba(255,255,255,.9)",font=dict(size=11),
                         bordercolor=C["border"],borderwidth=1),
@@ -748,9 +811,9 @@ with tab4:
 st.markdown(f"""
 <div style="margin-top:2rem;padding:18px 0;border-top:1px solid {C['border']};
      display:flex;justify-content:space-between;align-items:center;
-     font-size:.72rem;color:{C['muted']};font-family:'DM Sans',sans-serif;">
+     font-size:.72rem;color:{C['muted']};font-family:'SVN-Helvetica Now',sans-serif;">
   <span>
-    <strong style="color:{C['navy']};font-family:'Barlow Condensed',sans-serif;
+    <strong style="color:{C['navy']};font-family:'SVN-Helvetica Now',sans-serif;
       font-size:.85rem;font-weight:700;letter-spacing:.04em;">GHN EES 2026</strong>
     &nbsp;·&nbsp; Survey Progress Dashboard &nbsp;·&nbsp; EX Team
   </span>
