@@ -1,15 +1,6 @@
 """
-═══════════════════════════════════════════════════════════════════════════
 GHN EES 2026 — Survey Progress Dashboard
-═══════════════════════════════════════════════════════════════════════════
-Hierarchy:  Khối → [Vùng — chỉ Khối Thị Trường] → Phòng ban → Team
-
-Kết nối:
-  • Workforce Data  → Google Sheet (.streamlit/secrets.toml [connections.workforce])
-  • 4 Survey Files  → 4 Google Sheet riêng (survey_2A, 2B, 3A, 3B)
-
-Fallback URLs hardcoded bên dưới (khi secrets.toml trục trặc).
-═══════════════════════════════════════════════════════════════════════════
+Theo dõi tiến độ khảo sát theo: Division → Department → Section
 """
 import streamlit as st
 import pandas as pd
@@ -17,1063 +8,1129 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from streamlit_gsheets import GSheetsConnection
 from datetime import datetime, timedelta
-import unicodedata
-import re
+import unicodedata, re
 
-from org_hierarchy import (
-    KHOI_LIST, KHOI_TO_DEPTS, DEPT_TO_KHOI, VUNG_LIST,
-    resolve_khoi, resolve_vung,
+# ══════════════════════════════════════════════════════════════
+# PAGE CONFIG
+# ══════════════════════════════════════════════════════════════
+st.set_page_config(
+    page_title="GHN EES 2026 · Survey Progress",
+    page_icon="./img/Logo_EES.png",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-KHOI_THI_TRUONG = "Khối Thị Trường"  # Khối duy nhất có Vùng
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 1. PAGE CONFIG + BRAND + CSS (THEME GHN EES 2026 LANDING PAGE)
-# ═══════════════════════════════════════════════════════════════════════════
-st.set_page_config(page_title="GHN EES 2026 · Survey Progress", page_icon="./img/Logo_EES.png",
-                   layout="wide", initial_sidebar_state="expanded")
-
-BRAND = {
-    "NAVY":"#0A1F44","ORANGE":"#FF5200","BLUE":"#006FAD","BEIGE":"#F5F4F0",
-    "GOLD":"#F8B200","BG":"#FFFFFF","TEXT":"#444444","MUTED":"#888888","BORDER":"#E0DDD6","GRID":"#EEEEEE",
-    "AC":"#006FAD","PY":"#999999","POS":"#006400","NEG":"#D32F2F",
+C = {
+    "navy":    "#0A1F44",
+    "navy2":   "#132A5C",
+    "orange":  "#FF5200",
+    "orange2": "#CC4100",
+    "blue":    "#006FAD",
+    "slate":   "#F0F2F5",
+    "bg":      "#FFFFFF",
+    "text":    "#2E3440",
+    "sub":     "#5A6272",
+    "muted":   "#9BA3B2",
+    "border":  "#DDE1E8",
+    "line":    "#E8EAF0",
+    "green":   "#0D6E3A",
+    "green2":  "#E6F4ED",
+    "red":     "#C0392B",
+    "red2":    "#FDECEA",
+    "gold":    "#D4A017",
+    "gold2":   "#FBF5E6",
 }
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
-/* Main Background and Fonts */
-.stApp {{ background-color: {BRAND['BEIGE']}; }}
-.block-container {{ padding-top: 2rem; padding-bottom: 2.5rem; max-width: 1300px; }}
-html, body, [class*="css"] {{ font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif!important; color:{BRAND['TEXT']}; }}
-h1, h2, h3, h4 {{ color:{BRAND['NAVY']}!important; font-weight:800!important; letter-spacing:-0.03em; }}
+/* ── Base ── */
+html, body, [class*="css"] {{
+    font-family: 'DM Sans', system-ui, sans-serif !important;
+    color: {C['text']} !important;
+    -webkit-font-smoothing: antialiased;
+}}
+.stApp {{ background: {C['slate']}; }}
+.block-container {{ max-width: 1320px; padding: 0 2rem 3rem; }}
+#MainMenu, footer, header {{ visibility: hidden; }}
 
-/* Sidebar Sync */
-[data-testid="stSidebar"] {{ background-color:{BRAND['BG']}; border-right:1px solid {BRAND['BORDER']}; }}
-[data-testid="stSidebar"] * {{ color:{BRAND['NAVY']}; }}
-.stSelectbox label, .stMultiSelect label, .stDateInput label {{ 
-    font-size:0.75rem!important; font-weight:700!important; text-transform:uppercase; 
-    letter-spacing:0.08em; color:{BRAND['NAVY']}!important; 
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {{
+    background: {C['navy']};
+    border-right: none;
+}}
+[data-testid="stSidebar"] * {{ color: rgba(255,255,255,0.85) !important; }}
+[data-testid="stSidebar"] .stMarkdown h4 {{
+    color: rgba(255,255,255,0.45) !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-size: .7rem !important;
+    letter-spacing: .15em !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    margin-bottom: 6px !important;
+}}
+[data-testid="stSidebar"] .stMultiSelect > label,
+[data-testid="stSidebar"] .stCheckbox > label,
+[data-testid="stSidebar"] .stDateInput > label {{
+    color: rgba(255,255,255,0.55) !important;
+    font-size: .7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .1em !important;
+}}
+[data-testid="stSidebar"] [data-baseweb="select"] div,
+[data-testid="stSidebar"] [data-baseweb="input"] input {{
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: white !important;
+    border-radius: 4px !important;
+}}
+[data-testid="stSidebar"] .stButton > button {{
+    background: {C['orange']} !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-size: .85rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .12em !important;
+    text-transform: uppercase !important;
+    padding: .55rem 1rem !important;
+    width: 100% !important;
+    transition: background .15s !important;
+}}
+[data-testid="stSidebar"] .stButton > button:hover {{
+    background: {C['orange2']} !important;
+}}
+.sidebar-logo {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: white !important;
+    letter-spacing: -.02em;
+    text-transform: uppercase;
+    padding: 1.5rem 0 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 1.5rem;
+}}
+.sidebar-logo span {{ color: {C['orange']}; }}
+.sidebar-divider {{
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin: 1.2rem 0;
 }}
 
-/* Hidden elements */
-#MainMenu, footer, header {{ visibility:hidden; }}
-
-/* Hero Report Header */
-.report-header {{ 
-    background: {BRAND['BG']}; padding: 32px 40px; border: 1px solid {BRAND['BORDER']}; 
-    border-left: 5px solid {BRAND['ORANGE']}; margin-bottom: 32px; 
-    display:flex; justify-content:space-between; align-items:flex-end; 
-    box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {{
+    background: transparent !important;
+    border-bottom: 2px solid {C['line']} !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
 }}
-.report-header .brand-tag {{ 
-    font-size:0.8rem; color:{BRAND['BLUE']}; text-transform:uppercase; 
-    font-weight:800; letter-spacing:0.15em; margin-bottom:10px; display: flex; align-items: center; gap: 8px;
+.stTabs [data-baseweb="tab"] {{
+    font-family: 'Barlow Condensed', sans-serif !important;
+    font-size: .85rem !important;
+    font-weight: 700 !important;
+    letter-spacing: .1em !important;
+    text-transform: uppercase !important;
+    color: {C['muted']} !important;
+    padding: .9rem 1.6rem !important;
+    border-bottom: 3px solid transparent !important;
+    margin-bottom: -2px !important;
+    transition: all .2s !important;
+    background: transparent !important;
 }}
-.report-header .brand-tag::after {{ content:""; display:block; height:1px; width:40px; background:{BRAND['BLUE']}; }}
-.report-header h1 {{ 
-    font-size:clamp(2rem, 4vw, 2.5rem)!important; font-weight:900!important; 
-    color:{BRAND['NAVY']}!important; line-height:1.1!important; margin:0!important; 
-    text-transform: uppercase; letter-spacing: -0.04em;
+.stTabs [aria-selected="true"] {{
+    color: {C['navy']} !important;
+    border-bottom-color: {C['orange']} !important;
 }}
-.report-header h1 .accent {{ color:{BRAND['ORANGE']}; }}
-.report-header .subtitle {{ font-size:1rem; color:{BRAND['TEXT']}; margin-top:10px; line-height: 1.6; max-width: 600px; }}
-.report-header .meta-label {{ font-size:0.7rem; color:{BRAND['MUTED']}; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }}
-.report-header .meta-value {{ font-size:0.85rem; font-weight:700; color:{BRAND['NAVY']}; }}
-
-/* KPI Cards (Landing Page Stats Style) */
-.kpi-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }}
-.kpi-card {{ 
-    background:{BRAND['BG']}; border:1px solid {BRAND['BORDER']}; padding:24px; 
-    border-left: 4px solid {BRAND['NAVY']}; box-shadow: 0 2px 12px rgba(0,0,0,0.02); 
+.stTabs [data-baseweb="tab"]:hover {{
+    color: {C['navy']} !important;
 }}
-.kpi-card.done {{ border-left-color: {BRAND['BLUE']}; }}
-.kpi-card.pending {{ border-left-color: {BRAND['ORANGE']}; }}
-.kpi-card.growth {{ border-left-color: {BRAND['GOLD']}; }}
-
-.kpi-card .kpi-label {{ font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; color:{BRAND['MUTED']}; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px; }}
-.kpi-card .kpi-value {{ font-size:2.5rem; font-weight:800; color:{BRAND['NAVY']}; line-height:1; letter-spacing:-0.04em; }}
-.kpi-card.done .kpi-value {{ color: {BRAND['BLUE']}; }}
-.kpi-card.pending .kpi-value {{ color: {BRAND['ORANGE']}; }}
-.kpi-card.growth .kpi-value {{ color: {BRAND['GOLD']}; text-shadow: 0 0 10px rgba(248,178,0,0.2); }}
-.kpi-card .kpi-sub {{ font-size:0.85rem; margin-top:10px; color:{BRAND['TEXT']}; line-height:1.4; }}
-
-.delta-pos {{ color:{BRAND['POS']}; font-weight:700; }}
-.delta-neg {{ color:{BRAND['NEG']}; font-weight:700; }}
-.delta-neu {{ color:{BRAND['MUTED']}; font-weight:500; }}
-
-/* IBCS Sections (Landing Page Block Style) */
-.ibcs-section {{ 
-    background:{BRAND['BG']}; border:1px solid {BRAND['BORDER']}; padding:32px 40px; 
-    margin-bottom:24px; box-shadow: 0 4px 16px rgba(0,0,0,0.02); 
+.stTabs [data-baseweb="tab-panel"] {{
+    padding: 0 !important;
+    background: transparent !important;
 }}
-.ibcs-section h3 {{ 
-    font-size:1.2rem!important; font-weight:800!important; margin-bottom:20px!important; 
-    text-transform:uppercase; letter-spacing:0.18em; color:{BRAND['ORANGE']}!important; 
-    display: flex; align-items: center; gap: 0.7rem; 
+
+/* ── Sliders ── */
+[data-testid="stSlider"] > label {{
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .1em !important;
+    color: {C['sub']} !important;
 }}
-.ibcs-section h3::after {{ content: ""; flex: 1; height: 1px; background: {BRAND['BORDER']}; }}
-.section-msg {{ font-size:0.95rem; color:{BRAND['TEXT']}; margin:-8px 0 20px 0; line-height:1.6; max-width:800px; text-align:justify; }}
 
-/* Tables */
-.ibcs-table {{ width:100%; border-collapse:collapse; font-size:0.85rem; }}
-.ibcs-table th {{ 
-    background:{BRAND['BEIGE']}; border-bottom:2px solid {BRAND['NAVY']}; padding:12px 14px; 
-    text-align:left; font-weight:700; text-transform:uppercase; font-size:0.75rem; letter-spacing:0.05em; color:{BRAND['NAVY']}; 
+/* ── Header ── */
+.site-header {{
+    background: {C['navy']};
+    padding: 0;
+    margin: 0 -2rem 2rem;
+    display: flex;
+    align-items: stretch;
+    min-height: 120px;
+    position: relative;
+    overflow: hidden;
 }}
-.ibcs-table th.num {{ text-align:right; }}
-.ibcs-table td {{ padding:10px 14px; border-bottom:1px solid {BRAND['BORDER']}; color:{BRAND['TEXT']}; }}
-.ibcs-table td.num {{ text-align:right; font-variant-numeric:tabular-nums; }}
-.ibcs-table tr:hover {{ background:#FAFAFA; }}
-.ibcs-table .pos {{ color:{BRAND['POS']}; font-weight:700; }}
-.ibcs-table .neg {{ color:{BRAND['NEG']}; font-weight:700; }}
-.ibcs-table .neutral {{ color:{BRAND['MUTED']}; font-weight:500; }}
-.ibcs-table .total-row td {{ border-top:2px solid {BRAND['NAVY']}; font-weight:800; background:#FAFAF8; color:{BRAND['ORANGE']}; }}
-
-/* Mini Bars inside tables */
-.mini-bar-bg {{ background:{BRAND['GRID']}; height:8px; border-radius:2px; position:relative; min-width:80px; overflow:hidden; }}
-.mini-bar-fill {{ height:8px; border-radius:2px; position:absolute; top:0; left:0; }}
-
-/* Status Messages */
-.status-msg {{ 
-    border-left:4px solid {BRAND['BLUE']}; background:#FBFBFB; padding:16px 20px; 
-    margin:16px 0; border:1px solid {BRAND['BORDER']}; border-left-width:4px; font-size:0.9rem; line-height:1.6;
+.site-header::before {{
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, {C['navy2']} 0%, {C['navy']} 60%);
+    z-index: 0;
 }}
-.status-msg.warn {{ border-left-color:{BRAND['ORANGE']}; }}
-.status-msg.err {{ border-left-color:{BRAND['NEG']}; }}
-.status-msg strong {{ color:{BRAND['NAVY']}; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.85rem; font-weight:800; }}
-
-/* CTA Buttons */
-.stButton > button {{ 
-    background:{BRAND['ORANGE']}!important; color:#FFF!important; border:none!important; 
-    border-radius:2px!important; font-weight:800!important; text-transform:uppercase!important; 
-    font-size:0.85rem!important; letter-spacing:0.06em!important; padding:0.8rem 1.5rem!important; 
-    width:100%; transition:all 0.2s!important; box-shadow: 0 4px 12px rgba(255,82,0,0.25)!important; 
+.site-header::after {{
+    content: "";
+    position: absolute;
+    right: -60px; top: -40px;
+    width: 320px; height: 220px;
+    background: {C['orange']};
+    opacity: 0.06;
+    border-radius: 50%;
+    z-index: 0;
 }}
-.stButton > button:hover {{ transform:translateY(-1px); box-shadow: 0 6px 16px rgba(255,82,0,0.35)!important; background:#F64C00!important; color:#fff!important; }}
+.header-accent {{
+    width: 5px;
+    background: {C['orange']};
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}}
+.header-body {{
+    padding: 28px 40px;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}}
+.header-label {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: {C['orange']};
+    margin-bottom: 10px;
+}}
+.header-title {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+    letter-spacing: -.02em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+}}
+.header-title .acc {{ color: {C['orange']}; }}
+.header-desc {{
+    font-size: .88rem;
+    color: rgba(255,255,255,0.55);
+    font-weight: 300;
+    letter-spacing: .01em;
+    max-width: 520px;
+    line-height: 1.6;
+}}
+.header-meta {{
+    text-align: right;
+}}
+.header-meta .meta-label {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .65rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 4px;
+}}
+.header-meta .meta-val {{
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.75);
+}}
 
-.report-footer {{ font-size:0.75rem; color:{BRAND['MUTED']}; text-align:center; padding:20px; border-top:1px solid {BRAND['BORDER']}; margin-top:32px; background:{BRAND['BG']}; display:flex; justify-content:space-between; align-items:center; }}
+/* ── KPI Grid ── */
+.kpi-grid {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: {C['border']};
+    border: 1px solid {C['border']};
+    margin-bottom: 2rem;
+}}
+.kpi-cell {{
+    background: {C['bg']};
+    padding: 24px 28px;
+    position: relative;
+}}
+.kpi-cell::before {{
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: {C['border']};
+}}
+.kpi-cell.c-orange::before {{ background: {C['orange']}; }}
+.kpi-cell.c-blue::before   {{ background: {C['blue']}; }}
+.kpi-cell.c-green::before  {{ background: {C['green']}; }}
+.kpi-cell.c-navy::before   {{ background: {C['navy']}; }}
+.kpi-label {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: {C['muted']};
+    margin-bottom: 12px;
+}}
+.kpi-value {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.03em;
+    color: {C['navy']};
+    margin-bottom: 6px;
+}}
+.kpi-cell.c-orange .kpi-value {{ color: {C['orange']}; }}
+.kpi-cell.c-blue   .kpi-value {{ color: {C['blue']}; }}
+.kpi-cell.c-green  .kpi-value {{ color: {C['green']}; }}
+.kpi-sub {{
+    font-size: .8rem;
+    color: {C['sub']};
+    font-weight: 400;
+    line-height: 1.4;
+}}
+.delta-p {{ color: {C['green']}; font-weight: 700; }}
+.delta-n {{ color: {C['red']}; font-weight: 700; }}
+.delta-z {{ color: {C['muted']}; }}
+
+/* ── Cards ── */
+.section-card {{
+    background: {C['bg']};
+    border: 1px solid {C['border']};
+    margin-bottom: 1.5rem;
+}}
+.section-head {{
+    padding: 18px 28px;
+    border-bottom: 1px solid {C['line']};
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+}}
+.section-head .sh-title {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: {C['navy']};
+}}
+.section-head .sh-rule {{
+    flex: 1;
+    height: 1px;
+    background: {C['line']};
+}}
+.section-body {{ padding: 24px 28px; }}
+
+/* ── Table ── */
+.data-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .83rem;
+}}
+.data-table thead tr {{
+    border-bottom: 2px solid {C['navy']};
+}}
+.data-table th {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: {C['sub']};
+    padding: 8px 10px 10px;
+    text-align: left;
+    white-space: nowrap;
+    background: transparent;
+}}
+.data-table th.num {{ text-align: right; }}
+.data-table tbody tr {{
+    border-bottom: 1px solid {C['line']};
+    transition: background .1s;
+}}
+.data-table tbody tr:hover {{ background: {C['slate']}; }}
+.data-table td {{
+    padding: 9px 10px;
+    vertical-align: middle;
+    color: {C['text']};
+}}
+.data-table td.num {{
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: .82rem;
+}}
+.data-table td.name {{
+    font-weight: 600;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}}
+.data-table .foot-row td {{
+    border-top: 2px solid {C['navy']};
+    padding-top: 11px;
+    font-weight: 700;
+    color: {C['navy']};
+    background: transparent;
+}}
+.data-table .rank {{
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .78rem;
+    font-weight: 700;
+    color: {C['muted']};
+    text-align: right;
+    width: 28px;
+}}
+
+/* ── Progress bar ── */
+.prog-wrap {{
+    height: 5px;
+    background: {C['line']};
+    border-radius: 1px;
+    overflow: hidden;
+    min-width: 80px;
+}}
+.prog-fill {{
+    height: 5px;
+    border-radius: 1px;
+    transition: width .3s ease;
+}}
+
+/* ── Badge ── */
+.pct-badge {{
+    display: inline-block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: .82rem;
+    font-weight: 800;
+    letter-spacing: .03em;
+    padding: 2px 8px;
+    border-radius: 2px;
+}}
+.b-good  {{ background: {C['green2']}; color: {C['green']}; }}
+.b-mid   {{ background: #E8F4FD;       color: {C['blue']}; }}
+.b-low   {{ background: {C['red2']};   color: {C['red']}; }}
+.b-zero  {{ background: {C['slate']};  color: {C['muted']}; }}
+
+/* ── Scrollable table wrapper ── */
+.tbl-scroll {{ overflow-x: auto; }}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 2. PLOTLY IBCS LAYOUT
-# ═══════════════════════════════════════════════════════════════════════════
-def ibcs_layout(**kwargs):
-    base = dict(
-        paper_bgcolor="white", plot_bgcolor="#FEFEFE",
-        font=dict(family="Inter, sans-serif", size=12, color=BRAND["TEXT"]),
-        margin=dict(l=50, r=20, t=30, b=40),
-        xaxis=dict(showgrid=False, zeroline=True, zerolinecolor="#CCC", zerolinewidth=1,
-                   tickfont=dict(size=11, color=BRAND["MUTED"])),
-        yaxis=dict(showgrid=True, gridcolor="#F0F0F0", gridwidth=1,
-                   zeroline=True, zerolinecolor="#CCC", zerolinewidth=1,
-                   tickfont=dict(size=11, color=BRAND["MUTED"])),
-        showlegend=False,
-        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Inter",
-                        bordercolor=BRAND["BORDER"]),
-    )
-    base.update(kwargs); return base
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 3. COLUMN AUTO-MATCHER
-# ═══════════════════════════════════════════════════════════════════════════
-def _norm(s):
-    if s is None: return ""
-    s = str(s).strip().lower()
-    s = unicodedata.normalize("NFD", s)
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]", "", s)
-
-CANDIDATES = {
-    "timestamp": ["timestamp","thoigian","thoigiandanhdau","submissiondate","submittime",
-                  "daterecorded","ngaynop","ngaykhaosat","ngay","date","time"],
-    "division":  ["khoi","khoivn","divisionnamevn","division","divisionname"],
-    "region":    ["vung","region","sectionnamevn","sectionname","section","buname","bu","mien","khuvuc","area"],
-    "department":["phongban","departmentnamevn","department","departmentname","dept","phong"],
-    "team":      ["team","teamnamevn","teamname","nhom"],
-    "employee_id":["employeeid","idnhanvien","id","manhanvien","mnv","staffid"],
+# ══════════════════════════════════════════════════════════════
+# CONSTANTS & HELPERS
+# ══════════════════════════════════════════════════════════════
+WF_SHEET_ID = "1pyNwximXg0aZzahEroGdenxnUIRe1XWbnMy_YRULAn0"
+SURVEY_IDS = {
+    "2A": "1AS22mEX2_kezYRGsWIDHGEXNQAKD4xG_4W8_jtBDA1o",
+    "2B": "1hmATsOmJ9a1WmZsBMSlITC3UH7zAnLRYXqQ2an1ppNo",
+    "3A": "1UFtIMOAqZj-uvidePYZiWLiYaq_Lg1rm0ttEJWYowb8",
+    "3B": "1E7_G8znrD-ITdvs894e-QUg9AJl7SQS3D6FhyYkeUbc",
+}
+GROUP_LABELS = {
+    "2A": "NV Vận hành Kho",
+    "2B": "Quản lý Tuyến đầu",
+    "3A": "NV Văn phòng HO",
+    "3B": "Manager / Director HO",
 }
 
-def find_col(df, key):
-    nmap = {_norm(c): c for c in df.columns}
-    for cand in CANDIDATES.get(key, []):
-        if _norm(cand) in nmap: return nmap[_norm(cand)]
-    for cand in CANDIDATES.get(key, []):
-        cn = _norm(cand)
-        if not cn: continue
-        for nc, orig in nmap.items():
-            if (cn in nc or nc in cn) and len(nc) < 40: return orig
+def _url(sid):
+    return f"https://docs.google.com/spreadsheets/d/{sid}/edit"
+
+def _norm(s):
+    s = unicodedata.normalize("NFD", str(s).strip().lower())
+    return re.sub(r"[^a-z0-9]", "", "".join(c for c in s if unicodedata.category(c) != "Mn"))
+
+def _clean(v):
+    if v is None: return None
+    s = str(v).strip()
+    return None if s in ("", "nan", "None") else s
+
+def _find_col(df, *kw):
+    for col in df.columns:
+        if any(k.lower() in col.lower() for k in kw):
+            return col
     return None
 
+def pct_badge(p):
+    if p >= 75: cls, lbl = "b-good",  f"{p:.1f}%"
+    elif p >= 40: cls, lbl = "b-mid", f"{p:.1f}%"
+    elif p > 0:   cls, lbl = "b-low",  f"{p:.1f}%"
+    else:          cls, lbl = "b-zero", "—"
+    return f'<span class="pct-badge {cls}">{lbl}</span>'
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 4. DATA LOADING
-# ═══════════════════════════════════════════════════════════════════════════
-SURVEY_GROUPS = ["2A", "2B", "3A", "3B"]
+def prog_bar(p):
+    w = min(p, 100)
+    if p >= 75: col = C["green"]
+    elif p >= 40: col = C["blue"]
+    elif p > 0: col = C["orange"]
+    else: col = C["line"]
+    return f'<div class="prog-wrap"><div class="prog-fill" style="width:{w}%;background:{col}"></div></div>'
 
-FALLBACK_URLS = {
-    "workforce": "https://docs.google.com/spreadsheets/d/1pyNwximXg0aZzahEroGdenxnUIRe1XWbnMy_YRULAn0/edit",
-    "survey_2A": "https://docs.google.com/spreadsheets/d/1AS22mEX2_kezYRGsWIDHGEXNQAKD4xG_4W8_jtBDA1o/edit",
-    "survey_2B": "https://docs.google.com/spreadsheets/d/1hmATsOmJ9a1WmZsBMSlITC3UH7zAnLRYXqQ2an1ppNo/edit",
-    "survey_3A": "https://docs.google.com/spreadsheets/d/1UFtIMOAqZj-uvidePYZiWLiYaq_Lg1rm0ttEJWYowb8/edit",
-    "survey_3B": "https://docs.google.com/spreadsheets/d/1E7_G8znrD-ITdvs894e-QUg9AJl7SQS3D6FhyYkeUbc/edit",
-}
-
-# Tên worksheet thực tế của từng connection
-WORKSHEET_NAMES = {
-    "workforce": "Workforce Data",
-    "survey_2A": "Form Responses 1",
-    "survey_2B": "Form Responses 1",
-    "survey_3A": "Form Responses 1",
-    "survey_3B": "Form Responses 1",
-}
-
-def _get_url(conn_name):
-    try:
-        if "connections" in st.secrets and conn_name in st.secrets["connections"]:
-            v = st.secrets["connections"][conn_name].get("spreadsheet", "")
-            if v and "ID_SHEET" not in v and v.strip(): return v
-    except Exception:
-        pass
-    return FALLBACK_URLS.get(conn_name, "")
-
-def _canon_khoi(row):
-    k = resolve_khoi(dept_name=row.get("department"), khoi_name=row.get("division"))
-    return k or row.get("division")
-
-def _canon_vung(row):
-    if row.get("khoi_canonical") != KHOI_THI_TRUONG:
-        return None
-    return resolve_vung(row.get("region")) or row.get("region")
+def delta_html(v):
+    if v > 0: return f'<span class="delta-p">+{v:,}</span>'
+    if v < 0: return f'<span class="delta-n">{v:,}</span>'
+    return f'<span class="delta-z">—</span>'
 
 
-@st.cache_data(ttl=600, show_spinner="Đang tải Workforce Data…")
+# ══════════════════════════════════════════════════════════════
+# PLOTLY THEME
+# ══════════════════════════════════════════════════════════════
+def chart_layout(height=360, l=260, r=130):
+    return dict(
+        paper_bgcolor="white", plot_bgcolor="white",
+        height=height,
+        margin=dict(l=l, r=r, t=24, b=24),
+        font=dict(family="DM Sans, sans-serif", size=11, color=C["text"]),
+        xaxis=dict(showgrid=True, gridcolor=C["line"], gridwidth=1,
+                   zeroline=False, tickfont=dict(size=10, color=C["muted"])),
+        yaxis=dict(showgrid=False, tickfont=dict(size=10, color=C["text"])),
+        showlegend=False,
+        hoverlabel=dict(bgcolor="white", font_size=12,
+                        font_family="DM Sans", bordercolor=C["border"]),
+        barmode="overlay",
+        bargap=0.32,
+    )
+
+def bar_color(p):
+    if p >= 75: return C["green"]
+    if p >= 40: return C["blue"]
+    if p > 0:   return C["orange"]
+    return C["muted"]
+
+
+# ══════════════════════════════════════════════════════════════
+# LOAD WORKFORCE
+# ══════════════════════════════════════════════════════════════
+@st.cache_data(ttl=600, show_spinner="Đang tải Workforce…")
 def load_workforce():
     try:
-        df = pd.read_csv("./data/workforce.csv", low_memory=False)
-    except Exception as e:
-        raise ValueError(f"Không đọc được file local Workforce: {e}")
+        conn = st.connection("workforce", type=GSheetsConnection)
+        df = conn.read(spreadsheet=_url(WF_SHEET_ID), worksheet="Workforce Data")
+    except Exception:
+        conn = st.connection("workforce", type=GSheetsConnection)
+        df = conn.read(spreadsheet=_url(WF_SHEET_ID))
 
-    df = df.dropna(how="all")
-    rename_map = {}
-    for key in ["division","region","department","team","employee_id"]:
-        col = find_col(df, key)
-        if col: rename_map[col] = key
-    df = df.rename(columns=rename_map)
-    for c in ["division","region","department","team","employee_id"]:
-        if c not in df.columns: df[c] = None
-    for c in ["division","region","department","team"]:
-        df[c] = df[c].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
+    df = df.dropna(how="all").copy()
+    df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
-    df["khoi_canonical"] = df.apply(_canon_khoi, axis=1)
-    df["vung_canonical"] = df.apply(_canon_vung, axis=1)
+    rename = {}
+    for c in df.columns:
+        n = _norm(c)
+        if n in ("employeeid", "id") and "employee_id" not in rename.values():
+            rename[c] = "employee_id"
+        elif n == "status":        rename[c] = "status"
+        elif n == "divisionname":  rename[c] = "division_name"
+        elif n == "departmentname":rename[c] = "department_name"
+        elif n == "sectionname":   rename[c] = "section_name"
+        elif n == "buname":        rename[c] = "bu_name"
+    df = df.rename(columns=rename)
+
+    for col in ["employee_id","status","division_name","department_name","section_name","bu_name"]:
+        if col not in df.columns: df[col] = None
+
+    for col in ["division_name","department_name","section_name","bu_name"]:
+        df[col] = df[col].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
+
+    df["status"] = pd.to_numeric(df["status"], errors="coerce")
     return df
 
 
+# ══════════════════════════════════════════════════════════════
+# MAPPING
+# ══════════════════════════════════════════════════════════════
+_VUNG = {
+    "hno":"HNO Region","dsh":"DSH Region","xbg":"XBG Region",
+    "dbb":"DBB Region","tbb":"TBB Region","tnt":"TNT Region",
+    "btb":"BTB Region","ttb":"TTB Region","tng":"TNG Region",
+    "ntb":"NTB Region","dnb":"DNB Region","tnb":"TNB Region",
+    "hcm":"HCM Region","dcl":"ĐCL Region","ecl":"ĐCL Region",
+}
+
+def map_vung(v):
+    if not v: return None
+    n = _norm(v)
+    for code, r in _VUNG.items():
+        if code in n: return r
+    return None
+
+def map_ktc(v):
+    if not v: return None
+    n = _norm(v)
+    if "xuyena" in n: return "Xuyen A Sorting Centers"
+    if "m12" in n: return "M12 Sorting Centers"
+    if "daitu" in n: return "Dai Tu Sorting Centers"
+    if "hungyen" in n: return "Hung Yen Sorting Centers"
+    if "duongxa" in n: return "Dai Tu Sorting Centers"
+    return None
+
+def map_gxt(v):
+    if not v: return None
+    n = _norm(v)
+    if "hn" in n and "hcm" not in n and "mien" not in n: return "B2B Operations Department - HN"
+    if "bac1" in n or "north1" in n: return "B2B Operations Department - North 1"
+    if "bac2" in n or "north2" in n: return "B2B Operations Department - North 2"
+    if "bac3" in n or "north3" in n: return "B2B Operations Department - North 3"
+    if "trung" in n: return "B2B Operations Department - Central"
+    if "dong" in n: return "B2B Operations Department - Eastern"
+    if "tay" in n and "hcm" not in n: return "B2B Operations Department - Western"
+    if "hcm" in n: return "B2B Operations Department - HCM"
+    return None
+
+def map_ho_div(v):
+    if not v: return None
+    n = _norm(v)
+    if "freight" in n or "giahang" in n: return "Freight Project"
+    if "technology" in n or "congngh" in n: return "Technology Division"
+    if "customer" in n or "khhang" in n: return "Customer Division"
+    if "humanresource" in n or "nhanluc" in n: return "Human Resource Division"
+    if "finance" in n or "taichinh" in n: return "Finance Division"
+    if "market" in n or "thitrng" in n: return "Market Division"
+    if "coreai" in n or ("ai" in n and "data" in n): return "Core AI & Data Platform Department"
+    if "warehouse" in n or "fulfillment" in n: return "Phòng Dịch Vụ Kho Vận (Warehouse/ Fulfillment)"
+    if "audit" in n or "legal" in n or "ceo" in n: return "General Management Department"
+    if "product" in n or "sanpham" in n: return "Product Department"
+    if "crossborder" in n: return "Cross Border Transport Department"
+    return None
+
+
+# ══════════════════════════════════════════════════════════════
+# PARSE SURVEYS
+# ══════════════════════════════════════════════════════════════
+def parse_2ab(df, group):
+    rows = []
+    col_ts   = _find_col(df, "timestamp", "thời gian")
+    col_pb   = _find_col(df, "phòng ban", "phong ban")
+    col_vung = _find_col(df, "thuộc vùng")
+    col_ktc  = _find_col(df, "kct", "ttct", "ktc/")
+    col_gxt  = _find_col(df, "bộ phận nào")
+    for _, row in df.iterrows():
+        ts  = pd.to_datetime(row[col_ts], errors="coerce") if col_ts else pd.NaT
+        pb  = _clean(row[col_pb]) if col_pb else None
+        dv = dept = sec = None
+        if pb:
+            pl = pb.lower()
+            if "warehouse" in pl or "fulfillment" in pl:
+                dv = "Phòng Dịch Vụ Kho Vận (Warehouse/ Fulfillment)"; dept = "Phòng Dịch Vụ Kho Vận"
+            elif "giao hàng nặng" in pl or "gxt" in pl:
+                dv = "Freight Project"; dept = "B2B Operations Department"
+                sec = map_gxt(_clean(row[col_gxt]) if col_gxt else None)
+            elif "kho trung chuyển" in pl or "trung tâm" in pl or "ktc" in pl:
+                dv = "Market Division"; dept = "Sorting Centers"
+                sec = map_ktc(_clean(row[col_ktc]) if col_ktc else None)
+            else:
+                dv = "Market Division"; dept = "Region"
+                sec = map_vung(_clean(row[col_vung]) if col_vung else None)
+        rows.append({"timestamp":ts,"survey_group":group,"division_wf":dv,"department_wf":dept,"section_wf":sec})
+    return pd.DataFrame(rows)
+
+def parse_3ab(df, group):
+    rows = []
+    col_ts   = _find_col(df, "timestamp", "thời gian")
+    col_div  = _find_col(df, "phòng ban", "phong ban")
+    col_dept = _find_col(df, "bạn thuộc", "ban thuoc", "bộ phận")
+    for _, row in df.iterrows():
+        ts      = pd.to_datetime(row[col_ts], errors="coerce") if col_ts else pd.NaT
+        div_raw = _clean(row[col_div]) if col_div else None
+        dept_r  = _clean(row[col_dept]) if col_dept else None
+        rows.append({"timestamp":ts,"survey_group":group,
+                     "division_wf":map_ho_div(div_raw),"department_wf":dept_r,"section_wf":None})
+    return pd.DataFrame(rows)
+
 @st.cache_data(ttl=600, show_spinner=False)
-def load_survey(group_name):
-    if group_name == "2B":
+def load_survey(group):
+    try:
+        conn = st.connection(f"survey_{group}", type=GSheetsConnection)
+        df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), worksheet="Form Responses 1")
+    except Exception:
         try:
-            df = pd.read_excel(r"./data/EES-2026-Demo-2B (Responses).xlsx")
+            conn = st.connection(f"survey_{group}", type=GSheetsConnection)
+            df = conn.read(spreadsheet=_url(SURVEY_IDS[group]))
         except Exception as e:
-            return pd.DataFrame(), f"Không đọc được file local 2B: {e}"
-    else:
-        # Ngắt các kết nối khác tạm thời
-        return pd.DataFrame(), None
-
+            return pd.DataFrame(), str(e)[:150]
     df = df.dropna(how="all")
-    if len(df) == 0: return df, None
+    if len(df) == 0: return pd.DataFrame(), None
+    try:
+        return (parse_2ab(df, group) if group in ("2A","2B") else parse_3ab(df, group)), None
+    except Exception as e:
+        return pd.DataFrame(), str(e)
 
-    col_pb_orig = next((c for c in df.columns if "Phòng Ban bạn" in str(c)), None)
-    col_vung_orig = next((c for c in df.columns if "Bạn thuộc Vùng" in str(c)), None)
-    col_ktc_orig = next((c for c in df.columns if "KCT/TTCT" in str(c)), None)
-    col_gxt_orig = next((c for c in df.columns if "bộ phận nào" in str(c) and "Warehouse" not in str(c)), None)
-    col_khl_orig = next((c for c in df.columns if "Warehouse" in str(c)), None)
-
-    rename_map = {}
-    for key in ["timestamp","division","region","department","team","employee_id"]:
-        col = find_col(df, key)
-        if col: rename_map[col] = key
-    df = df.rename(columns=rename_map)
-
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce", dayfirst=True)
-    else:
-        df["timestamp"] = pd.NaT
-
-    for c in ["division","region","department","team"]:
-        if c not in df.columns: df[c] = None
-        else: df[c] = df[c].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
-
-    if group_name == "2B":
-        # 2B Custom Mapping for Workforce alignment
-        col_pb = rename_map.get(col_pb_orig, col_pb_orig)
-        col_vung = rename_map.get(col_vung_orig, col_vung_orig)
-        col_ktc = rename_map.get(col_ktc_orig, col_ktc_orig)
-        col_gxt = rename_map.get(col_gxt_orig, col_gxt_orig)
-        col_khl = rename_map.get(col_khl_orig, col_khl_orig)
-        
-        def _parse_2b(row):
-            pb = str(row[col_pb]).strip() if col_pb and pd.notna(row[col_pb]) else ""
-            div = row.get("division", None)
-            dept = row.get("department", None)
-            reg = row.get("region", None)
-            team = row.get("team", None)
-            
-            if "Vùng" in pb and pb != "Warehouse/Fulfillment":
-                div = "Khối Thị Trường"
-                dept = "Vùng"
-                reg = row[col_vung] if col_vung and pd.notna(row[col_vung]) else reg
-            elif "Kho Trung Chuyển" in pb:
-                div = "Khối Thị Trường"
-                dept = "Kho Trung Chuyển"
-                ktc_val = str(row[col_ktc]).strip() if col_ktc and pd.notna(row[col_ktc]) else ""
-                if ktc_val:
-                    reg = ktc_val.replace("KTC ", "").replace("TTTC ", "").strip()
-            elif "Giao Hàng Nặng" in pb:
-                dept = "Phòng Công Nghệ & Sản Phẩm Giao Hàng Nặng"
-                team = row[col_gxt] if col_gxt and pd.notna(row[col_gxt]) else team
-            elif "Warehouse" in pb:
-                div = "Phòng Dịch Vụ Kho Vận (Warehouse/ Fulfillment)"
-                dept = "Phòng Dịch Vụ Kho Vận"
-                team = row[col_khl] if col_khl and pd.notna(row[col_khl]) else team
-            
-            return pd.Series({"division": div, "department": dept, "region": reg, "team": team})
-
-        if col_pb:
-            mapped = df.apply(_parse_2b, axis=1)
-            for c in ["division", "department", "region", "team"]:
-                df[c] = mapped[c]
-
-    df["khoi_canonical"] = df.apply(_canon_khoi, axis=1)
-    df["vung_canonical"] = df.apply(_canon_vung, axis=1)
-    df["survey_group"] = group_name
-    return df, None
-
-
-@st.cache_data(ttl=600, show_spinner="Đang tải toàn bộ khảo sát…")
+@st.cache_data(ttl=600, show_spinner="Đang tải dữ liệu khảo sát…")
 def load_all_surveys():
     parts, warnings = [], []
-    for g in SURVEY_GROUPS:
+    for g in ("2A","2B","3A","3B"):
         part, err = load_survey(g)
-        if err: warnings.append(err)
+        if err: warnings.append(f"[{g}] {err}")
         elif len(part) > 0: parts.append(part)
     if parts:
-        return pd.concat(parts, ignore_index=True), warnings
-    return pd.DataFrame(columns=["timestamp","division","region","department","team",
-                                  "employee_id","khoi_canonical","vung_canonical","survey_group"]), warnings
+        df = pd.concat(parts, ignore_index=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        return df, warnings
+    empty = pd.DataFrame(columns=["timestamp","survey_group","division_wf","department_wf","section_wf"])
+    empty["timestamp"] = pd.NaT
+    return empty, warnings
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 5. HEADER
-# ═══════════════════════════════════════════════════════════════════════════
-now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+# ══════════════════════════════════════════════════════════════
+# HEADER
+# ══════════════════════════════════════════════════════════════
+now_str = datetime.now().strftime("%d/%m/%Y  %H:%M")
 st.markdown(f"""
-<div class="report-header">
-  <div>
-    <div class="brand-tag">GIAO HÀNG NHANH</div>
-    <h1>EES RACE <span class="accent">2026</span></h1>
-    <div class="subtitle">Báo cáo tiến độ cuộc đua khảo sát mức độ gắn kết EES · Dành cho nhóm 2A, 2B, 3A, 3B. Tiếng nói của bạn định hình tương lai GHN.</div>
-  </div>
-  <div style="text-align:right;">
-    <div class="meta-label">Cập nhật lần cuối</div>
-    <div class="meta-value">{now_str}</div>
+<div class="site-header">
+  <div class="header-accent"></div>
+  <div class="header-body">
+    <div>
+      <div class="header-label">Giao Hàng Nhanh · Employee Experience · 2026</div>
+      <div class="header-title">EES Race <span class="acc">2026</span></div>
+      <div class="header-desc">
+        Theo dõi tiến độ tham gia khảo sát Employee Engagement Survey theo Division, Department và Section.
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="meta-label">Cập nhật lần cuối</div>
+      <div class="meta-val">{now_str}</div>
+    </div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 6. LOAD DATA
-# ═══════════════════════════════════════════════════════════════════════════
-try:
-    df_wf = load_workforce()
-except Exception as e:
-    st.markdown(f'<div class="status-msg err"><strong>Lỗi Workforce</strong>'
-                f'<code>{str(e)[:300]}</code></div>', unsafe_allow_html=True)
-    st.stop()
+# ══════════════════════════════════════════════════════════════
+# LOAD DATA
+# ══════════════════════════════════════════════════════════════
+df_wf_raw = load_workforce()
+df_sv_raw, warnings = load_all_surveys()
 
-try:
-    df_sv, warn_list = load_all_surveys()
-except Exception as e:
-    st.markdown(f'<div class="status-msg err"><strong>Lỗi Survey</strong>'
-                f'<code>{str(e)[:300]}</code></div>', unsafe_allow_html=True)
-    df_sv, warn_list = pd.DataFrame(), []
+for w in warnings:
+    st.warning(w, icon=None)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 7. SIDEBAR FILTERS
-# ═══════════════════════════════════════════════════════════════════════════
-st.sidebar.markdown(f"""
-<div style='border-bottom:2px solid {BRAND["BORDER"]}; padding-bottom:10px; margin-bottom:14px;'>
-<strong style='font-size:1.1rem; color:{BRAND["ORANGE"]}; font-weight: 800;'>📊 BỘ LỌC BÁO CÁO</strong><br/>
-<span style='font-size:0.75rem; color:{BRAND["MUTED"]};'>Data Filters</span>
-</div>""", unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════
+# SIDEBAR
+# ══════════════════════════════════════════════════════════════
+with st.sidebar:
+    st.markdown('<div class="sidebar-logo">GHN <span>EES</span></div>', unsafe_allow_html=True)
 
-if st.sidebar.button("🔄 ĐỒNG BỘ DỮ LIỆU"):
-    st.cache_data.clear(); st.rerun()
+    if st.button("Làm mới dữ liệu"):
+        st.cache_data.clear()
+        st.rerun()
 
-# Debug expander
-with st.sidebar.expander("🔍 Debug Config", expanded=False):
-    try:
-        if "connections" in st.secrets:
-            st.caption(f"**Secrets:** ✓ {', '.join(list(st.secrets['connections'].keys()))}")
-        else:
-            st.caption("**Secrets:** ⚠ không có [connections]")
-    except Exception as e:
-        st.caption(f"**Secrets:** ✗ {str(e)[:80]}")
-    for cn in ["workforce"] + [f"survey_{g}" for g in SURVEY_GROUPS]:
-        url = _get_url(cn)
-        ws_name = WORKSHEET_NAMES.get(cn, "—")
-        st.caption(f"• `{cn}` [{ws_name}]: {'✓' if url else '❌ trống'}")
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-def safe_unique(s):
-    return sorted([x for x in s.dropna().unique() if str(x).strip() != ""])
+    bu_opts  = sorted(x for x in df_wf_raw["bu_name"].dropna().unique() if x)
+    sel_bu   = st.multiselect("Business Unit", bu_opts, default=bu_opts)
+    only_act = st.checkbox("Chỉ nhân sự đang làm (status = 1)", value=True)
 
-# Nhóm khảo sát
-sel_groups = st.sidebar.multiselect("NHÓM KHẢO SÁT", SURVEY_GROUPS, default=SURVEY_GROUPS)
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-# ─── KHỐI ─────────────────────────────────────────────────────────────
-khoi_in_data = set(df_wf["khoi_canonical"].dropna().unique())
-khoi_opts = [k for k in KHOI_LIST if k in khoi_in_data] + sorted(khoi_in_data - set(KHOI_LIST))
-sel_khoi = st.sidebar.multiselect("KHỐI (DIVISION)", khoi_opts)
-
-df_wf_f = df_wf.copy()
-if sel_khoi:
-    df_wf_f = df_wf_f[df_wf_f["khoi_canonical"].isin(sel_khoi)]
-
-# ─── VÙNG (chỉ show khi Khối Thị Trường liên quan) ─────────────────────
-is_ktt_relevant = (not sel_khoi) or (KHOI_THI_TRUONG in sel_khoi)
-sel_vung = []
-if is_ktt_relevant:
-    vung_in_data = set(df_wf_f["vung_canonical"].dropna().unique())
-    vung_opts = [v for v in VUNG_LIST if v in vung_in_data] + sorted(vung_in_data - set(VUNG_LIST))
-    if vung_opts:
-        sel_vung = st.sidebar.multiselect(
-            "VÙNG (chỉ áp dụng Khối Thị Trường)", vung_opts,
-            help="Vùng là cấp nằm trong Khối Thị Trường.",
-        )
-        if sel_vung:
-            mask_ktt = df_wf_f["khoi_canonical"] == KHOI_THI_TRUONG
-            df_wf_f = df_wf_f[~mask_ktt | df_wf_f["vung_canonical"].isin(sel_vung)]
-else:
-    st.sidebar.caption("ℹ️ Vùng chỉ áp dụng cho Khối Thị Trường.")
-
-# ─── PHÒNG BAN ────────────────────────────────────────────────────────
-dept_opts = safe_unique(df_wf_f["department"])
-sel_dept = st.sidebar.multiselect("PHÒNG BAN", dept_opts)
-if sel_dept:
-    df_wf_f = df_wf_f[df_wf_f["department"].isin(sel_dept)]
-
-# ─── TEAM ─────────────────────────────────────────────────────────────
-team_opts = safe_unique(df_wf_f["team"]) if "team" in df_wf_f.columns else []
-sel_team = st.sidebar.multiselect("TEAM", team_opts) if team_opts else []
-if sel_team:
-    df_wf_f = df_wf_f[df_wf_f["team"].isin(sel_team)]
-
-# ─── Apply cùng filter cho survey ─────────────────────────────────────
-df_sv_f = df_sv.copy() if len(df_sv) > 0 else df_sv
-if len(df_sv_f) > 0:
-    if sel_groups:
-        df_sv_f = df_sv_f[df_sv_f["survey_group"].isin(sel_groups)]
-    if sel_khoi:
-        df_sv_f = df_sv_f[df_sv_f["khoi_canonical"].isin(sel_khoi)]
-    if sel_vung:
-        mask_ktt = df_sv_f["khoi_canonical"] == KHOI_THI_TRUONG
-        df_sv_f = df_sv_f[~mask_ktt | df_sv_f["vung_canonical"].isin(sel_vung)]
-    if sel_dept:
-        df_sv_f = df_sv_f[df_sv_f["department"].isin(sel_dept)]
-    if sel_team and "team" in df_sv_f.columns:
-        df_sv_f = df_sv_f[df_sv_f["team"].isin(sel_team)]
-
-# ─── Date range filter ────────────────────────────────────────────────
-if len(df_sv_f) > 0 and df_sv_f["timestamp"].notna().any():
-    ts_min = df_sv_f["timestamp"].min().date()
-    ts_max = df_sv_f["timestamp"].max().date()
-    date_range = st.sidebar.date_input(
-        "KHOẢNG NGÀY KHẢO SÁT",
-        value=(ts_min, ts_max), min_value=ts_min, max_value=ts_max,
+    sel_grp = st.multiselect(
+        "Nhóm khảo sát",
+        list(GROUP_LABELS.keys()),
+        default=list(GROUP_LABELS.keys()),
+        format_func=lambda g: f"{g}  ·  {GROUP_LABELS[g]}",
     )
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        d0, d1 = date_range
-        mask = (df_sv_f["timestamp"].dt.date >= d0) & (df_sv_f["timestamp"].dt.date <= d1)
-        df_sv_f = df_sv_f[mask | df_sv_f["timestamp"].isna()]
 
-# Legend
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"""
-<div style='font-size:0.75rem; line-height:1.8;'>
-<strong style="font-size:0.72rem; letter-spacing:0.05em; color:{BRAND['NAVY']}">KÝ HIỆU IBCS</strong><br/>
-<span style='display:inline-block; width:14px; height:10px; background:{BRAND["AC"]}; margin-right:4px; vertical-align:middle'></span> Hiện tại (AC)<br/>
-<span style='display:inline-block; width:14px; height:10px; background:{BRAND["PY"]}; margin-right:4px; vertical-align:middle'></span> Kỳ trước (PY)<br/>
-<span style='display:inline-block; width:14px; height:10px; background:{BRAND["POS"]}; margin-right:4px; vertical-align:middle'></span> Δ Positive<br/>
-<span style='display:inline-block; width:14px; height:10px; background:{BRAND["NEG"]}; margin-right:4px; vertical-align:middle'></span> Δ Negative<br/>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-if warn_list:
-    for w in warn_list:
-        st.markdown(f'<div class="status-msg warn"><strong>Cảnh báo</strong>{w}</div>', unsafe_allow_html=True)
+    div_opts  = sorted(x for x in df_wf_raw["division_name"].dropna().unique() if x)
+    sel_div   = st.multiselect("Division", div_opts)
+
+    wf_tmp = df_wf_raw[df_wf_raw["division_name"].isin(sel_div)] if sel_div else df_wf_raw
+    dept_opts = sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
+    sel_dept  = st.multiselect("Department", dept_opts)
+
+    if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
+    sec_opts  = sorted(x for x in wf_tmp["section_name"].dropna().unique() if x)
+    sel_sec   = st.multiselect("Section", sec_opts)
+
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
+
+    if df_sv_raw["timestamp"].notna().any():
+        ts_min = df_sv_raw["timestamp"].min().date()
+        ts_max = df_sv_raw["timestamp"].max().date()
+        date_rng = st.date_input("Khoảng thời gian", (ts_min, ts_max),
+                                  min_value=ts_min, max_value=ts_max)
+    else:
+        date_rng = None
+
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
+    st.markdown(
+        '<p style="font-size:.68rem;color:rgba(255,255,255,.3);line-height:1.6;">'
+        'Filter cascade: Division → Department → Section<br>'
+        'HC tính theo nhân sự đang làm việc.</p>',
+        unsafe_allow_html=True,
+    )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 8. KPI COMPUTATION
-# ═══════════════════════════════════════════════════════════════════════════
-total_hc = int(df_wf_f["employee_id"].nunique()) if df_wf_f["employee_id"].notna().any() else len(df_wf_f)
-total_done = len(df_sv_f)
-total_pending = max(total_hc - total_done, 0)
-pct_done = (total_done / total_hc * 100) if total_hc > 0 else 0.0
+# ══════════════════════════════════════════════════════════════
+# APPLY FILTERS
+# ══════════════════════════════════════════════════════════════
+df_wf = df_wf_raw.copy()
+if sel_bu:   df_wf = df_wf[df_wf["bu_name"].isin(sel_bu)]
+if only_act: df_wf = df_wf[df_wf["status"] == 1]
+if sel_div:  df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
+if sel_dept: df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
+if sel_sec:  df_wf = df_wf[df_wf["section_name"].isin(sel_sec)]
 
-today = datetime.now().date()
+df_sv = df_sv_raw.copy()
+if sel_grp: df_sv = df_sv[df_sv["survey_group"].isin(sel_grp)]
+if sel_div: df_sv = df_sv[df_sv["division_wf"].isin(sel_div) | df_sv["division_wf"].isna()]
+if date_rng and isinstance(date_rng, (tuple, list)) and len(date_rng) == 2:
+    d0, d1 = date_rng
+    df_sv  = df_sv[(df_sv["timestamp"].dt.date >= d0) & (df_sv["timestamp"].dt.date <= d1)
+                   | df_sv["timestamp"].isna()]
+
+
+# ══════════════════════════════════════════════════════════════
+# KPI
+# ══════════════════════════════════════════════════════════════
+today     = datetime.now().date()
 yesterday = today - timedelta(days=1)
-if "timestamp" in df_sv_f.columns and df_sv_f["timestamp"].notna().any():
-    df_sv_f = df_sv_f.copy()
-    df_sv_f["_date"] = df_sv_f["timestamp"].dt.date
-    n_today = int((df_sv_f["_date"] == today).sum())
-    n_yesterday = int((df_sv_f["_date"] == yesterday).sum())
-else:
-    n_today, n_yesterday = 0, 0
-growth = n_today - n_yesterday
+total_hc  = len(df_wf)
+total_rs  = len(df_sv)
+pct_done  = (total_rs / total_hc * 100) if total_hc > 0 else 0
+pending   = max(total_hc - total_rs, 0)
 
-def fmt_delta(val, suffix=""):
-    if val > 0: return f'<span class="delta-pos">▲ +{val:,}{suffix}</span>'
-    if val < 0: return f'<span class="delta-neg">▼ {val:,}{suffix}</span>'
-    return f'<span class="delta-neu">— 0{suffix}</span>'
+n_today = n_yest = 0
+if df_sv["timestamp"].notna().any():
+    _d = df_sv["timestamp"].dt.date
+    n_today = int((_d == today).sum())
+    n_yest  = int((_d == yesterday).sum())
 
 st.markdown(f"""
 <div class="kpi-grid">
-<div class="kpi-card">
-  <div class="kpi-label">👥 TỔNG NHÂN SỰ</div>
-  <div class="kpi-value">{total_hc:,}</div>
-  <div class="kpi-sub">Headcount trong phạm vi lọc</div>
-</div>
-<div class="kpi-card done">
-  <div class="kpi-label">✅ ĐÃ HOÀN THÀNH</div>
-  <div class="kpi-value">{total_done:,}</div>
-  <div class="kpi-sub">Tổng lượt làm · {pct_done:.1f}% / Tổng HC</div>
-</div>
-<div class="kpi-card pending">
-  <div class="kpi-label">⏳ CHƯA THAM GIA</div>
-  <div class="kpi-value">{total_pending:,}</div>
-  <div class="kpi-sub">Ước tính = HC − Response</div>
-</div>
-<div class="kpi-card growth">
-  <div class="kpi-label">📈 TĂNG TRƯỞNG (HÔM NAY)</div>
-  <div class="kpi-value">{n_today:,}</div>
-  <div class="kpi-sub">{fmt_delta(growth)} so với hôm qua ({n_yesterday:,})</div>
-</div>
+  <div class="kpi-cell c-navy">
+    <div class="kpi-label">Tổng Nhân Sự</div>
+    <div class="kpi-value">{total_hc:,}</div>
+    <div class="kpi-sub">Headcount trong phạm vi lọc</div>
+  </div>
+  <div class="kpi-cell c-blue">
+    <div class="kpi-label">Đã Tham Gia</div>
+    <div class="kpi-value">{total_rs:,}</div>
+    <div class="kpi-sub">{pct_done:.1f}% trên tổng HC</div>
+  </div>
+  <div class="kpi-cell c-orange">
+    <div class="kpi-label">Chưa Tham Gia</div>
+    <div class="kpi-value">{pending:,}</div>
+    <div class="kpi-sub">HC − Response</div>
+  </div>
+  <div class="kpi-cell c-green">
+    <div class="kpi-label">Hôm Nay</div>
+    <div class="kpi-value">{n_today:,}</div>
+    <div class="kpi-sub">{delta_html(n_today - n_yest)} so với hôm qua ({n_yest:,})</div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
-if len(df_sv) == 0:
-    st.markdown(f"""
-    <div class="status-msg warn">
-      <strong>Chưa có dữ liệu khảo sát</strong>
-      4 sheet survey (2A, 2B, 3A, 3B) chưa kết nối hoặc chưa có response.
-      Kiểm tra <code>.streamlit/secrets.toml</code> có đủ 4 connection:
-      <code>survey_2A</code>, <code>survey_2B</code>, <code>survey_3A</code>, <code>survey_3B</code>.
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
 
+# ══════════════════════════════════════════════════════════════
+# CORE HELPERS
+# ══════════════════════════════════════════════════════════════
+def build_df(wf, sv, wf_col, sv_col, label):
+    hc = wf.groupby(wf_col, dropna=False).size().rename("hc")
+    rs = (sv[sv[sv_col].notna()].groupby(sv_col).size().rename("responses")
+          if len(sv) > 0 else pd.Series(dtype=int, name="responses"))
+    out = pd.concat([hc, rs], axis=1).fillna(0).astype(int).reset_index()
+    out.columns = [label, "hc", "responses"]
+    out = out[out[label].notna()]
+    out["pending"] = (out["hc"] - out["responses"]).clip(lower=0)
+    out["pct"]     = (out["responses"] / out["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
+    return out.sort_values("pct", ascending=False).reset_index(drop=True)
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 9. SECTION — XU HƯỚNG ADOPTION THEO THỜI GIAN
-# ═══════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-st.markdown("<h3>XU HƯỚNG ADOPTION THEO THỜI GIAN</h3>", unsafe_allow_html=True)
-
-if df_sv_f["timestamp"].notna().any():
-    tdf = df_sv_f.dropna(subset=["timestamp"]).copy()
-    tdf["_date"] = tdf["timestamp"].dt.date
-    daily = tdf.groupby("_date").size().rename("new_users").reset_index()
-    daily = daily.sort_values("_date").reset_index(drop=True)
-    daily["cum"] = daily["new_users"].cumsum()
-    daily["pct"] = (daily["cum"] / total_hc * 100) if total_hc > 0 else 0
-    daily["date_lbl"] = daily["_date"].apply(lambda d: d.strftime("%d/%m"))
-
-    first_pct, last_pct = daily["pct"].iloc[0], daily["pct"].iloc[-1]
-    peak_idx = daily["new_users"].idxmax()
-    peak_day = daily.loc[peak_idx, "date_lbl"]
-    peak_val = int(daily.loc[peak_idx, "new_users"])
-    trend_msg = (f'Tỷ lệ tham gia tăng từ <b>{first_pct:.1f}%</b> lên <b>{last_pct:.1f}%</b> '
-                 f'(+{last_pct-first_pct:.1f}pp) trong {len(daily)} kỳ báo cáo. '
-                 f'Ngày cao điểm: <b>{peak_day}</b> với {peak_val} lượt.')
-    st.markdown(f'<p class="section-msg">{trend_msg}</p>', unsafe_allow_html=True)
-
-    # Color bars by intensity
-    max_users = daily["new_users"].max() if daily["new_users"].max() > 0 else 1
-    bar_colors = [f"rgba(0, 111, 173, {0.25 + 0.6 * (v / max_users)})" for v in daily["new_users"]]
-
-    fig_t = make_subplots(specs=[[{"secondary_y": True}]])
-
-    # --- Gradient bars ---
-    fig_t.add_trace(go.Bar(
-        x=daily["date_lbl"], y=daily["new_users"],
-        name="User mới", marker_color=bar_colors,
-        marker_line=dict(width=0),
-        hovertemplate="<b>%{x}</b><br>User mới: %{y:,}<extra></extra>",
-    ), secondary_y=False)
-
-    # --- Area fill under line ---
-    fig_t.add_trace(go.Scatter(
-        x=daily["date_lbl"], y=daily["pct"],
-        name="% Hoàn thành", mode="lines",
-        line=dict(color="rgba(255,82,0,0)", width=0),
-        fill="tozeroy", fillcolor="rgba(255, 82, 0, 0.07)",
+def render_chart(df, label_col, h=360):
+    avg = df["pct"].mean()
+    fig = go.Figure()
+    # BG track
+    fig.add_trace(go.Bar(
+        y=df[label_col], x=[100]*len(df), orientation="h",
+        marker_color="rgba(220,224,232,0.5)", marker_line_width=0,
         hoverinfo="skip", showlegend=False,
-    ), secondary_y=True)
-
-    # --- Main line ---
-    # Smart labels: show only first, last, peak, and every ~5th point
-    n_pts = len(daily)
-    show_indices = {0, n_pts - 1, peak_idx}
-    step = max(1, n_pts // 5)
-    for i in range(0, n_pts, step):
-        show_indices.add(i)
-    text_labels = [f"{v:.1f}%" if i in show_indices else "" for i, v in enumerate(daily["pct"])]
-
-    fig_t.add_trace(go.Scatter(
-        x=daily["date_lbl"], y=daily["pct"],
-        name="% Hoàn thành", mode="lines+markers+text",
-        line=dict(color=BRAND["ORANGE"], width=3, shape="spline"),
-        marker=dict(size=8, color=BRAND["ORANGE"], line=dict(width=2, color="white")),
-        text=text_labels,
-        textposition="top center", textfont=dict(size=11, color=BRAND["ORANGE"]),
-        hovertemplate="<b>%{x}</b><br>Hoàn thành: %{y:.1f}%<extra></extra>",
-    ), secondary_y=True)
-
-    # --- Peak annotation ---
-    fig_t.add_annotation(
-        x=peak_day, y=peak_val,
-        text=f"🔥 Peak: {peak_val}",
-        showarrow=True, arrowhead=2, arrowsize=1, arrowcolor=BRAND["ORANGE"],
-        ax=0, ay=-35, font=dict(size=11, color=BRAND["ORANGE"]),
-        bgcolor="rgba(255,255,255,0.9)", bordercolor=BRAND["ORANGE"], borderwidth=1,
-        borderpad=4,
-        secondary_y=False,
+    ))
+    # Value bars
+    fig.add_trace(go.Bar(
+        y=df[label_col], x=df["pct"], orientation="h",
+        marker_color=[bar_color(p) for p in df["pct"]],
+        marker_line_width=0,
+        text=[f"  {p:.1f}%" for p in df["pct"]],
+        textposition="outside",
+        textfont=dict(size=10, color=C["text"], family="Barlow Condensed"),
+        hovertemplate="<b>%{y}</b><br>%{x:.1f}%  ·  %{customdata[0]:,} / %{customdata[1]:,}<extra></extra>",
+        customdata=list(zip(df["responses"], df["hc"])),
+        showlegend=False,
+    ))
+    # Avg line
+    fig.add_vline(
+        x=avg, line_dash="dot", line_color=C["orange"], line_width=1.5,
+        annotation_text=f"TB  {avg:.1f}%",
+        annotation_position="top",
+        annotation_font=dict(size=9, color=C["orange"], family="Barlow Condensed"),
     )
-
-    fig_t.update_layout(
-        **ibcs_layout(height=420, margin=dict(l=50, r=50, t=40, b=55), showlegend=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1,
-                    font=dict(size=11, color=BRAND["NAVY"]),
-                    bgcolor="rgba(255,255,255,0.8)"),
-        bargap=0.2,
+    fig.update_layout(
+        **chart_layout(height=h, l=260, r=120),
+        xaxis_range=[0, min(max(df["pct"].max() + 20, 110), 130)],
+        xaxis_dtick=25,
+        xaxis_title="% Hoàn thành",
+        xaxis_title_font=dict(size=10, color=C["muted"]),
     )
-    fig_t.update_xaxes(type="category", tickangle=-45, tickfont=dict(color=BRAND["NAVY"], size=10))
-    fig_t.update_yaxes(title_text="User mới (người)", secondary_y=False,
-                       showgrid=False, title_font=dict(color=BRAND["NAVY"], size=11))
-    fig_t.update_yaxes(title_text="Tỷ lệ Hoàn thành (%)", secondary_y=True, range=[0, 105],
-                        showgrid=True, gridcolor="#F0F0F0", title_font=dict(color=BRAND["NAVY"], size=11))
-    st.plotly_chart(fig_t, use_container_width=True)
-else:
-    st.info("Chưa có cột timestamp hợp lệ trong data survey.")
+    return fig
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 10. SECTION — PHÂN TÍCH THEO KHỐI · TỶ LỆ ADOPTION
-# ═══════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-st.markdown("<h3>PHÂN TÍCH THEO KHỐI (DIVISION) · TIẾN ĐỘ</h3>", unsafe_allow_html=True)
-
-if df_sv_f["timestamp"].notna().any():
-    sv_today = df_sv_f[df_sv_f["timestamp"].dt.date <= today]
-    sv_yest  = df_sv_f[df_sv_f["timestamp"].dt.date <= yesterday]
-else:
-    sv_today = df_sv_f.copy()
-    sv_yest  = df_sv_f.iloc[0:0]
-
-wf_by_khoi = df_wf_f.groupby("khoi_canonical").size().rename("hc")
-sv_today_k = sv_today.groupby("khoi_canonical").size().rename("ac") if len(sv_today) else pd.Series(dtype=int, name="ac")
-sv_yest_k  = sv_yest.groupby("khoi_canonical").size().rename("py") if len(sv_yest) else pd.Series(dtype=int, name="py")
-khoi_df = pd.concat([wf_by_khoi, sv_today_k, sv_yest_k], axis=1).fillna(0).astype(int)
-khoi_df["pct_ac"] = (khoi_df["ac"] / khoi_df["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-khoi_df["pct_py"] = (khoi_df["py"] / khoi_df["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-khoi_df["delta_pct"] = (khoi_df["pct_ac"] - khoi_df["pct_py"]).round(1)
-khoi_df["delta_abs"] = khoi_df["ac"] - khoi_df["py"]
-khoi_df = khoi_df.reset_index()
-khoi_df = khoi_df.rename(columns={khoi_df.columns[0]: "name"})
-khoi_df = khoi_df[khoi_df["name"].notna()]
-khoi_df = khoi_df.sort_values("pct_ac", ascending=True).reset_index(drop=True)
-
-if len(khoi_df) > 0:
-    top = khoi_df.sort_values("pct_ac", ascending=False).iloc[0]
-    bot = khoi_df.sort_values("pct_ac", ascending=True).iloc[0]
-    msg = f'Đứng đầu đường đua: <b>{top["name"]}</b> ({top["pct_ac"]:.1f}%) · Đang tăng tốc: <b>{bot["name"]}</b> ({bot["pct_ac"]:.1f}%)'
-    st.markdown(f'<p class="section-msg">{msg}</p>', unsafe_allow_html=True)
-
-    col_chart, col_tbl = st.columns([3, 2])
-
-    with col_chart:
-        # --- Conditional color by tier ---
-        def tier_color(pct):
-            if pct >= 75: return BRAND["POS"]      # green
-            if pct >= 50: return BRAND["AC"]        # blue
-            if pct >= 25: return BRAND["ORANGE"]    # orange
-            return "#D32F2F"                         # red
-
-        colors_ac = [tier_color(p) for p in khoi_df["pct_ac"]]
-        avg_pct = khoi_df["pct_ac"].mean()
-
-        # Normalize marker size by HC (min 10, max 22)
-        hc_min, hc_max = khoi_df["hc"].min(), khoi_df["hc"].max()
-        if hc_max > hc_min:
-            marker_sizes = [10 + 12 * (h - hc_min) / (hc_max - hc_min) for h in khoi_df["hc"]]
-        else:
-            marker_sizes = [14] * len(khoi_df)
-
-        fig_k = go.Figure()
-
-        # --- PY reference bar (light background) ---
-        fig_k.add_trace(go.Bar(
-            y=khoi_df["name"], x=khoi_df["pct_py"], orientation="h",
-            name=f"Kỳ trước ({yesterday.strftime('%d/%m')})",
-            marker_color="rgba(200,200,200,0.35)", marker_line=dict(width=0),
-            hovertemplate="<b>%{y}</b><br>Kỳ trước: %{x:.1f}%<extra></extra>",
-        ))
-
-        # --- Lollipop stems (thin bars for AC) ---
-        fig_k.add_trace(go.Bar(
-            y=khoi_df["name"], x=khoi_df["pct_ac"], orientation="h",
-            name=f"Hiện tại ({today.strftime('%d/%m')})",
-            marker_color=[c.replace(")", ",0.6)").replace("rgb", "rgba") if "rgba" not in c
-                         else c for c in colors_ac],
-            marker_line=dict(width=0), width=0.3,
-            hovertemplate="<b>%{y}</b><br>Hiện tại: %{x:.1f}%<extra></extra>",
-        ))
-
-        # --- Lollipop dots ---
-        rank_labels = []
-        sorted_desc = khoi_df.sort_values("pct_ac", ascending=False)
-        rank_map = {name: i+1 for i, name in enumerate(sorted_desc["name"])}
-        for _, r in khoi_df.iterrows():
-            rank = rank_map[r["name"]]
-            medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-            medal = medals.get(rank, "")
-            rank_labels.append(f"  {r['pct_ac']:.1f}% {medal}")
-
-        fig_k.add_trace(go.Scatter(
-            y=khoi_df["name"], x=khoi_df["pct_ac"],
-            mode="markers+text",
-            marker=dict(size=marker_sizes, color=colors_ac,
-                       line=dict(width=2, color="white")),
-            text=rank_labels,
-            textposition="middle right",
-            textfont=dict(size=11, color=BRAND["NAVY"]),
-            hovertemplate="<b>%{y}</b><br>%{x:.1f}%<extra></extra>",
-            showlegend=False,
-        ))
-
-        # --- Average reference line ---
-        fig_k.add_vline(
-            x=avg_pct, line_dash="dot", line_color=BRAND["ORANGE"], line_width=2,
-            annotation_text=f"TB: {avg_pct:.1f}%",
-            annotation_position="top",
-            annotation_font=dict(size=10, color=BRAND["ORANGE"]),
-        )
-
-        fig_k.update_layout(
-            **ibcs_layout(
-                height=max(360, len(khoi_df) * 48 + 80),
-                margin=dict(l=240, r=100, t=30, b=30),
-                barmode="overlay", bargap=0.3, showlegend=True,
-            ),
-            legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="left", x=0,
-                       font=dict(size=11, color=BRAND["NAVY"]),
-                       bgcolor="rgba(255,255,255,0.8)"),
-        )
-        fig_k.update_xaxes(range=[0, max(110, khoi_df["pct_ac"].max() + 20)],
-                           dtick=25, showgrid=True, gridcolor="#F0F0F0",
-                           title_text="% Hoàn thành", title_font=dict(size=11, color=BRAND["NAVY"]))
-        fig_k.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"]))
-        st.plotly_chart(fig_k, use_container_width=True)
-
-    with col_tbl:
-        rows = ""
-        sorted_k = khoi_df.sort_values("pct_ac", ascending=False)
-        for _, r in sorted_k.iterrows():
-            if r["delta_pct"] > 0: dc, ds = "pos", "+"
-            elif r["delta_pct"] < 0: dc, ds = "neg", ""
-            else: dc, ds = "neutral", ""
-            bar_w = min(r["pct_ac"], 100)
-            rows += f"""
-<tr>
-<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600;" title="{r['name']}">{r['name']}</td>
-<td class="num">{int(r['hc']):,}</td>
-<td class="num">{int(r['ac']):,}</td>
-<td class="num" style="font-weight:700; color:{BRAND['BLUE']}">{r['pct_ac']:.1f}%</td>
-<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['BLUE']};"></div></div></td>
-<td class="num {dc}">{ds}{r['delta_pct']:.1f}pp</td>
-<td class="num {dc}">{ds}{int(r['delta_abs']):,}</td>
-</tr>"""
-        t_hc = int(sorted_k["hc"].sum()); t_ac = int(sorted_k["ac"].sum()); t_py = int(sorted_k["py"].sum())
-        t_pct_ac = (t_ac/t_hc*100) if t_hc > 0 else 0
-        t_pct_py = (t_py/t_hc*100) if t_hc > 0 else 0
-        t_dpct = t_pct_ac - t_pct_py; t_dabs = t_ac - t_py
-        if t_dpct > 0: tdc, tds = "pos", "+"
-        elif t_dpct < 0: tdc, tds = "neg", ""
-        else: tdc, tds = "neutral", ""
+def render_table(df, label_col):
+    rows = ""
+    for i, r in df.iterrows():
         rows += f"""
-<tr class="total-row">
-<td>TỔNG CỘNG</td>
-<td class="num">{t_hc:,}</td>
-<td class="num">{t_ac:,}</td>
-<td class="num">{t_pct_ac:.1f}%</td>
-<td></td>
-<td class="num {tdc}">{tds}{t_dpct:.1f}pp</td>
-<td class="num {tdc}">{tds}{t_dabs:,}</td>
+<tr>
+  <td class="rank">{i+1}</td>
+  <td class="name" title="{r[label_col]}">{r[label_col]}</td>
+  <td class="num">{int(r['hc']):,}</td>
+  <td class="num">{int(r['responses']):,}</td>
+  <td class="num" style="color:{C['sub']}">{int(r['pending']):,}</td>
+  <td class="num">{pct_badge(r['pct'])}</td>
+  <td style="min-width:90px;padding-left:4px">{prog_bar(r['pct'])}</td>
 </tr>"""
-
-        st.markdown(f"""
-<table class="ibcs-table">
+    t_hc = int(df["hc"].sum()); t_rs = int(df["responses"].sum())
+    t_pnd = int(df["pending"].sum())
+    t_pct = (t_rs / t_hc * 100) if t_hc > 0 else 0
+    rows += f"""
+<tr class="foot-row">
+  <td></td><td>Total</td>
+  <td class="num">{t_hc:,}</td><td class="num">{t_rs:,}</td>
+  <td class="num">{t_pnd:,}</td>
+  <td class="num">{pct_badge(t_pct)}</td><td></td>
+</tr>"""
+    return f"""
+<div class="tbl-scroll">
+<table class="data-table">
 <thead><tr>
-<th>Khối</th><th class="num">HC</th><th class="num">Đã tham gia</th><th class="num">%</th>
-<th style="min-width:80px"></th><th class="num">Δ%</th><th class="num">Δ Abs</th>
+  <th class="num">#</th>
+  <th>{label_col}</th>
+  <th class="num">HC</th>
+  <th class="num">Đã nộp</th>
+  <th class="num">Chưa nộp</th>
+  <th class="num">Tỷ lệ</th>
+  <th></th>
 </tr></thead>
 <tbody>{rows}</tbody>
 </table>
-""", unsafe_allow_html=True)
-else:
-    st.info("Không đủ dữ liệu theo Khối.")
+</div>"""
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# 11. SECTION — CHI TIẾT PHÂN BỔ (DRILL-DOWN TABLE)
-# ═══════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-st.markdown("<h3>CHI TIẾT PHÂN BỔ BẢNG THI ĐUA</h3>", unsafe_allow_html=True)
-
-breakdown_level = st.selectbox(
-    "Phân tích theo cấp:",
-    ["Khối", "Khối › Vùng (Khối Thị Trường)", "Khối › Phòng Ban",
-     "Khối › Vùng › Phòng Ban", "Khối › Phòng Ban › Team"],
-    label_visibility="collapsed",
-)
-
-GROUP_MAP = {
-    "Khối": ["khoi_canonical"],
-    "Khối › Vùng (Khối Thị Trường)": ["khoi_canonical", "vung_canonical"],
-    "Khối › Phòng Ban": ["khoi_canonical", "department"],
-    "Khối › Vùng › Phòng Ban": ["khoi_canonical", "vung_canonical", "department"],
-    "Khối › Phòng Ban › Team": ["khoi_canonical", "department", "team"],
-}
-group_cols = GROUP_MAP[breakdown_level]
-
-wf_bd = df_wf_f.groupby(group_cols, dropna=False).size().rename("hc")
-sv_today_bd = sv_today.groupby(group_cols, dropna=False).size().rename("ac") if len(sv_today) else pd.Series(dtype=int, name="ac")
-sv_yest_bd  = sv_yest.groupby(group_cols, dropna=False).size().rename("py") if len(sv_yest) else pd.Series(dtype=int, name="py")
-
-bd = pd.concat([wf_bd, sv_today_bd, sv_yest_bd], axis=1).fillna(0).astype(int)
-bd["pending"] = (bd["hc"] - bd["ac"]).clip(lower=0)
-bd["pct_ac"] = (bd["ac"] / bd["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-bd["pct_py"] = (bd["py"] / bd["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-bd["delta_pct"] = (bd["pct_ac"] - bd["pct_py"]).round(1)
-bd["delta_abs"] = bd["ac"] - bd["py"]
-bd = bd.reset_index().sort_values("pct_ac", ascending=False).reset_index(drop=True)
-
-if len(bd) > 0:
-    rows = ""
-    for idx, r in bd.iterrows():
-        if r["delta_pct"] > 0: dc, ds = "pos", "+"
-        elif r["delta_pct"] < 0: dc, ds = "neg", ""
-        else: dc, ds = "neutral", ""
-        bar_w = min(r["pct_ac"], 100)
-        name_parts = [str(r[c]) for c in group_cols if pd.notna(r[c]) and str(r[c]).strip()]
-        disp = " › ".join(name_parts) if name_parts else "Chưa xác định"
-        rows += f"""
-<tr>
-<td class="num" style="color:{BRAND['MUTED']}; font-size:0.75rem; font-weight:700;">{idx+1}</td>
-<td style="max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;" title="{disp}">{disp}</td>
-<td class="num">{int(r['hc']):,}</td>
-<td class="num">{int(r['ac']):,}</td>
-<td class="num" style="color:{BRAND['ORANGE']}; font-weight:600;">{int(r['pending']):,}</td>
-<td class="num" style="font-weight:700; color:{BRAND['BLUE']}">{r['pct_ac']:.1f}%</td>
-<td><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{bar_w}%;background:{BRAND['BLUE']};"></div></div></td>
-<td class="num" style="color:{BRAND['MUTED']}">{r['pct_py']:.1f}%</td>
-<td class="num {dc}">{ds}{r['delta_pct']:.1f}pp</td>
-<td class="num {dc}">{ds}{int(r['delta_abs']):,}</td>
-</tr>"""
-    t_hc = int(bd["hc"].sum()); t_ac = int(bd["ac"].sum()); t_py = int(bd["py"].sum())
-    t_pending = t_hc - t_ac
-    t_pct_ac = (t_ac/t_hc*100) if t_hc > 0 else 0
-    t_pct_py = (t_py/t_hc*100) if t_hc > 0 else 0
-    t_dpct = t_pct_ac - t_pct_py; t_dabs = t_ac - t_py
-    if t_dpct > 0: tdc, tds = "pos", "+"
-    elif t_dpct < 0: tdc, tds = "neg", ""
-    else: tdc, tds = "neutral", ""
-    rows += f"""
-<tr class="total-row">
-<td></td>
-<td>TỔNG CỘNG</td>
-<td class="num">{t_hc:,}</td>
-<td class="num">{t_ac:,}</td>
-<td class="num" style="color:{BRAND['ORANGE']}">{t_pending:,}</td>
-<td class="num">{t_pct_ac:.1f}%</td>
-<td></td>
-<td class="num" style="color:{BRAND['MUTED']}">{t_pct_py:.1f}%</td>
-<td class="num {tdc}">{tds}{t_dpct:.1f}pp</td>
-<td class="num {tdc}">{tds}{t_dabs:,}</td>
-</tr>"""
-
+def section_card(title, content_fn):
     st.markdown(f"""
-<div style="overflow-x:auto;">
-<table class="ibcs-table">
-<thead>
-<tr>
-<th class="num" style="width:30px">#</th>
-<th>{breakdown_level}</th>
-<th class="num">HC</th>
-<th class="num">Đã tham gia</th>
-<th class="num">Chưa tham gia</th>
-<th class="num">% AC</th>
-<th style="min-width:100px"></th>
-<th class="num">% PY</th>
-<th class="num">Δ%</th>
-<th class="num">Δ Abs</th>
-</tr>
-</thead>
-<tbody>{rows}</tbody>
-</table>
-</div>
-""", unsafe_allow_html=True)
-else:
-    st.info("Không có dữ liệu cho cấu hình drill-down hiện tại.")
-
-st.markdown('</div>', unsafe_allow_html=True)
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sh-title">{title}</span>
+        <span class="sh-rule"></span>
+      </div>
+      <div class="section-body">
+    """, unsafe_allow_html=True)
+    content_fn()
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 12. SECTION — ĐƯỜNG ĐUA VÙNG (KHỐI THỊ TRƯỜNG)
-# ═══════════════════════════════════════════════════════════════════════════
-df_ktt_wf = df_wf_f[df_wf_f["khoi_canonical"] == KHOI_THI_TRUONG]
-df_ktt_sv = df_sv_f[df_sv_f["khoi_canonical"] == KHOI_THI_TRUONG]
+# ══════════════════════════════════════════════════════════════
+# TABS
+# ══════════════════════════════════════════════════════════════
+tab1, tab2, tab3, tab4 = st.tabs([
+    "Theo Division",
+    "Theo Department",
+    "Theo Section",
+    "Xu hướng theo ngày",
+])
 
-if len(df_ktt_wf) > 0 and df_ktt_wf["vung_canonical"].notna().any():
-    st.markdown('<div class="ibcs-section">', unsafe_allow_html=True)
-    st.markdown("<h3>ĐƯỜNG ĐUA TỶ LỆ HOÀN THÀNH THEO VÙNG</h3>", unsafe_allow_html=True)
-    st.markdown('<p class="section-msg">Bảng xếp hạng tiến độ tham gia khảo sát của các Vùng (thuộc Khối Thị Trường)</p>',
-                unsafe_allow_html=True)
 
-    wf_v = df_ktt_wf.groupby("vung_canonical").size().rename("hc")
-    sv_v = df_ktt_sv.groupby("vung_canonical").size().rename("ac") if len(df_ktt_sv) else pd.Series(dtype=int, name="ac")
-    mx = pd.concat([wf_v, sv_v], axis=1).fillna(0).astype(int)
-    mx["pct"] = (mx["ac"] / mx["hc"].replace(0, pd.NA) * 100).fillna(0).round(1)
-    mx = mx.reset_index()
-    mx = mx.rename(columns={mx.columns[0]: "vung"})
-    mx = mx[mx["vung"].isin(VUNG_LIST)]
-    
-    # Split active (>0%) vs inactive (0%) regions
-    mx_active = mx[mx["pct"] > 0].sort_values("pct", ascending=True).reset_index(drop=True)
-    mx_zero = mx[mx["pct"] == 0].sort_values("hc", ascending=True).reset_index(drop=True)
-    mx_sorted = pd.concat([mx_zero, mx_active], ignore_index=True)
+# ── TAB 1: DIVISION ──────────────────────────────────────────
+with tab1:
+    div_df = build_df(df_wf, df_sv, "division_name", "division_wf", "Division")
+    st.markdown("""
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sh-title">Tiến độ theo Division</span>
+        <span class="sh-rule"></span>
+      </div>
+      <div class="section-body">
+    """, unsafe_allow_html=True)
+    if len(div_df) > 0:
+        c1, c2 = st.columns([55, 45])
+        with c1:
+            st.plotly_chart(render_chart(div_df, "Division",
+                            h=max(340, len(div_df)*52+70)),
+                            use_container_width=True)
+        with c2:
+            st.markdown(render_table(div_df, "Division"), unsafe_allow_html=True)
+    else:
+        st.info("Không có dữ liệu.")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    n_total = len(mx_sorted)
-    n_active = len(mx_active)
 
-    # --- Race lane colors ---
-    race_colors = []
-    medals_map = {}
-    if n_active > 0:
-        ranked = mx_active.sort_values("pct", ascending=False).reset_index(drop=True)
-        for i, (_, r) in enumerate(ranked.iterrows()):
-            medals_map[r["vung"]] = i + 1
+# ── TAB 2: DEPARTMENT ────────────────────────────────────────
+with tab2:
+    dept_df = build_df(df_wf, df_sv, "department_name", "department_wf", "Department")
+    st.markdown("""
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sh-title">Tiến độ theo Department</span>
+        <span class="sh-rule"></span>
+      </div>
+      <div class="section-body">
+    """, unsafe_allow_html=True)
+    if len(dept_df) > 0:
+        n = st.slider("Hiển thị top N phòng ban", 5, min(60, len(dept_df)),
+                      min(20, len(dept_df)), key="dn",
+                      label_visibility="visible")
+        show = dept_df.head(n)
+        c1, c2 = st.columns([55, 45])
+        with c1:
+            st.plotly_chart(render_chart(show, "Department",
+                            h=max(340, len(show)*48+70)),
+                            use_container_width=True)
+        with c2:
+            st.markdown(render_table(show, "Department"), unsafe_allow_html=True)
+    else:
+        st.info("Không có dữ liệu.")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    for _, r in mx_sorted.iterrows():
-        if r["pct"] == 0:
-            race_colors.append("rgba(200,200,200,0.4)")
-        else:
-            rank = medals_map.get(r["vung"], 99)
-            if rank == 1:   race_colors.append("#FFB800")   # gold
-            elif rank == 2: race_colors.append("#A0A0A0")   # silver
-            elif rank == 3: race_colors.append("#CD7F32")   # bronze
-            else:           race_colors.append(BRAND["AC"])
 
-    # --- Labels with medal emoji ---
-    race_labels = []
-    for _, r in mx_sorted.iterrows():
-        rank = medals_map.get(r["vung"], 0)
-        medal = {1: " 🥇", 2: " 🥈", 3: " 🥉"}.get(rank, "")
-        race_labels.append(f"{r['pct']:.1f}%  ({int(r['ac']):,}/{int(r['hc']):,}){medal}")
+# ── TAB 3: SECTION ───────────────────────────────────────────
+with tab3:
+    sec_df = build_df(df_wf, df_sv, "section_name", "section_wf", "Section")
+    st.markdown("""
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sh-title">Tiến độ theo Section — Vùng / Sorting / Bộ phận</span>
+        <span class="sh-rule"></span>
+      </div>
+      <div class="section-body">
+    """, unsafe_allow_html=True)
+    if len(sec_df) > 0:
+        n2 = st.slider("Hiển thị top N section", 5, min(80, len(sec_df)),
+                       min(25, len(sec_df)), key="sn",
+                       label_visibility="visible")
+        show2 = sec_df.head(n2)
+        c1, c2 = st.columns([55, 45])
+        with c1:
+            st.plotly_chart(render_chart(show2, "Section",
+                            h=max(340, len(show2)*46+70)),
+                            use_container_width=True)
+        with c2:
+            st.markdown(render_table(show2, "Section"), unsafe_allow_html=True)
+    else:
+        st.info("Không có dữ liệu.")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    fig_race = go.Figure()
 
-    # --- Background lane bars (full width, very light) ---
-    fig_race.add_trace(go.Bar(
-        y=mx_sorted["vung"], x=[100] * n_total, orientation="h",
-        marker_color="rgba(240,240,240,0.5)", marker_line=dict(width=0),
-        hoverinfo="skip", showlegend=False,
-    ))
+# ── TAB 4: TREND ─────────────────────────────────────────────
+with tab4:
+    st.markdown("""
+    <div class="section-card">
+      <div class="section-head">
+        <span class="sh-title">Response theo ngày — tích lũy & mới</span>
+        <span class="sh-rule"></span>
+      </div>
+      <div class="section-body">
+    """, unsafe_allow_html=True)
 
-    # --- Main race bars ---
-    fig_race.add_trace(go.Bar(
-        y=mx_sorted["vung"], x=mx_sorted["pct"], orientation="h",
-        marker_color=race_colors, marker_line=dict(width=0),
-        text=race_labels,
-        textposition="outside", 
-        textfont=dict(size=11, color=BRAND["NAVY"]),
-        hovertemplate="<b>%{y}</b><br>Hoàn thành: %{x:.1f}%<br>Đã nộp: %{customdata[0]:,}/%{customdata[1]:,}<extra></extra>",
-        customdata=list(zip(mx_sorted["ac"], mx_sorted["hc"]))
-    ))
+    if df_sv["timestamp"].notna().any():
+        tdf = df_sv.dropna(subset=["timestamp"]).copy()
+        tdf["_d"] = tdf["timestamp"].dt.date
+        daily = (tdf.groupby("_d").size().rename("new").reset_index()
+                 .sort_values("_d").reset_index(drop=True))
+        daily["cum"] = daily["new"].cumsum()
+        daily["pct_cum"] = (daily["cum"] / total_hc * 100) if total_hc > 0 else 0
+        daily["lbl"] = daily["_d"].apply(lambda d: d.strftime("%d/%m"))
 
-    # --- Average line ---
-    avg_vung = mx_sorted["pct"].mean()
-    fig_race.add_vline(
-        x=avg_vung, line_dash="dot", line_color=BRAND["ORANGE"], line_width=2,
-        annotation_text=f"TB: {avg_vung:.1f}%",
-        annotation_position="top",
-        annotation_font=dict(size=10, color=BRAND["ORANGE"]),
-    )
+        fig_t = make_subplots(specs=[[{"secondary_y": True}]])
+        max_new = daily["new"].max() or 1
 
-    # --- Separator annotation between active/inactive ---
-    if n_active > 0 and len(mx_zero) > 0:
-        separator_y = len(mx_zero) - 0.5
-        fig_race.add_hline(
-            y=separator_y, line_dash="dash", line_color=BRAND["BORDER"], line_width=1,
+        # Bar
+        fig_t.add_trace(go.Bar(
+            x=daily["lbl"], y=daily["new"],
+            marker_color=[f"rgba(0,111,173,{0.25+0.65*(v/max_new)})" for v in daily["new"]],
+            marker_line_width=0, name="Mới trong ngày",
+            hovertemplate="<b>%{x}</b>  ·  %{y:,} response mới<extra></extra>",
+        ), secondary_y=False)
+
+        # Line
+        fig_t.add_trace(go.Scatter(
+            x=daily["lbl"], y=daily["pct_cum"],
+            mode="lines+markers",
+            line=dict(color=C["orange"], width=2.5, shape="spline"),
+            marker=dict(size=6, color=C["orange"],
+                        line=dict(width=1.5, color="white")),
+            name="% Tích lũy",
+            hovertemplate="<b>%{x}</b>  ·  %{y:.1f}% tích lũy<extra></extra>",
+        ), secondary_y=True)
+
+        fig_t.update_layout(
+            paper_bgcolor="white", plot_bgcolor="white",
+            height=360, bargap=0.25, showlegend=True,
+            margin=dict(l=40, r=70, t=16, b=52),
+            font=dict(family="DM Sans", size=11, color=C["text"]),
+            legend=dict(
+                orientation="h", y=1.06, x=1, xanchor="right",
+                bgcolor="rgba(255,255,255,.9)",
+                font=dict(size=11),
+                bordercolor=C["border"], borderwidth=1,
+            ),
+            xaxis=dict(type="category", tickangle=-45,
+                       showgrid=False, tickfont=dict(size=10, color=C["muted"])),
         )
-        fig_race.add_annotation(
-            x=50, y=separator_y,
-            text="── Chưa có response ──────── Đã tham gia ──",
-            showarrow=False, font=dict(size=9, color=BRAND["MUTED"]),
-            bgcolor="white", borderpad=3,
+        fig_t.update_yaxes(
+            title_text="Response mới / ngày",
+            title_font=dict(size=10, color=C["sub"]),
+            showgrid=True, gridcolor=C["line"],
+            tickfont=dict(size=10, color=C["muted"]),
+            secondary_y=False,
         )
-
-    fig_race.update_layout(
-        **ibcs_layout(
-            height=max(450, n_total * 38 + 80),
-            margin=dict(l=180, r=120, t=30, b=40),
-            barmode="overlay", bargap=0.22, showlegend=False
+        fig_t.update_yaxes(
+            title_text="% Tích lũy",
+            title_font=dict(size=10, color=C["sub"]),
+            range=[0, 108], showgrid=False,
+            tickfont=dict(size=10, color=C["muted"]),
+            secondary_y=True,
         )
-    )
-    fig_race.update_xaxes(
-        range=[0, max(115, mx_sorted["pct"].max() + 25)],
-        dtick=25, showgrid=True, gridcolor="#F0F0F0",
-        title_text="% Hoàn thành", title_font=dict(size=11, color=BRAND["NAVY"])
-    )
-    fig_race.update_yaxes(showgrid=False, tickfont=dict(size=11, color=BRAND["NAVY"]))
-    st.plotly_chart(fig_race, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.plotly_chart(fig_t, use_container_width=True)
+    else:
+        st.info("Chưa có dữ liệu timestamp trong survey.")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 # FOOTER
-# ═══════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════
 st.markdown(f"""
-<div class="report-footer">
-  <div>
-    <strong style="color:{BRAND['NAVY']}">GHN EES 2026</strong> · Survey Progress Dashboard <br>
-    Built with IBCS standards · Developed by <b>EX Team</b>
-  </div>
-  <div>
-    Last render: {now_str}
-  </div>
+<div style="
+  margin-top: 2rem;
+  padding: 18px 0;
+  border-top: 1px solid {C['border']};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .72rem;
+  color: {C['muted']};
+  font-family: 'DM Sans', sans-serif;
+">
+  <span>
+    <strong style="color:{C['navy']};font-family:'Barlow Condensed',sans-serif;
+      font-size:.85rem;font-weight:700;letter-spacing:.04em;">
+      GHN EES 2026
+    </strong>
+    &nbsp;·&nbsp; Survey Progress Dashboard &nbsp;·&nbsp; EX Team
+  </span>
+  <span>Render: {now_str}</span>
 </div>
 """, unsafe_allow_html=True)
