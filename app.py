@@ -205,12 +205,12 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
     border-radius:4px!important;font-family:'SVN-Helvetica Now',sans-serif!important;
     font-size:.75rem!important;font-weight:600!important;
     padding:.3rem .6rem!important;width:100%!important;}}
-[data-testid="stSidebar"] .stButton>button:hover{border-color:{C['orange']}!important;color:{C['orange']}!important;}
-[data-testid="stSidebar"] .stButton>button[kind="primary"]{background:{C['orange']}!important;color:white!important;border-color:{C['orange']}!important;}
-[data-testid="stSidebar"] .stButton>button[kind="tertiary"]{
+[data-testid="stSidebar"] .stButton>button:hover{{border-color:{C['orange']}!important;color:{C['orange']}!important;}}
+[data-testid="stSidebar"] .stButton>button[kind="primary"]{{background:{C['orange']}!important;color:white!important;border-color:{C['orange']}!important;}}
+[data-testid="stSidebar"] .stButton>button[kind="tertiary"]{{
     padding:0!important; min-height:0!important; line-height:1!important; border:none!important;
-    color:{C['muted']}!important; font-size:1.2rem!important; margin-top:0.15rem!important; background:transparent!important;}
-[data-testid="stSidebar"] .stButton>button[kind="tertiary"]:hover{color:{C['orange']}!important; border:none!important;}
+    color:{C['muted']}!important; font-size:1.2rem!important; margin-top:0.15rem!important; background:transparent!important;}}
+[data-testid="stSidebar"] .stButton>button[kind="tertiary"]:hover{{color:{C['orange']}!important; border:none!important;}}
 .sb-logo{{font-family:'SVN-Helvetica Now',sans-serif;font-size:1.5rem;font-weight:700;
     color:{C['navy']}!important;letter-spacing:-.02em;text-transform:uppercase;
     padding:1.5rem 0 1rem;border-bottom:1px solid {C['line']};margin-bottom:1rem;}}
