@@ -40,6 +40,7 @@ LANG = {
     "VI": {
         "page_sub":       "Tiến độ tham gia khảo sát theo Division, Department và Section.",
         "updated":        "Cập nhật lần cuối",
+        "refresh":        "Làm mới",
         "auto_refresh":   "Tự động làm mới mỗi 15 phút",
         "only_active":    "Chỉ nhân sự đang làm (status = 1)",
         "survey_group":   "Nhóm khảo sát",
@@ -91,6 +92,7 @@ LANG = {
     "EN": {
         "page_sub":       "Survey participation progress by Division, Department and Section.",
         "updated":        "Last updated",
+        "refresh":        "Refresh",
         "auto_refresh":   "Auto-refreshes every 15 mins",
         "only_active":    "Active employees only (status = 1)",
         "survey_group":   "Survey group",
@@ -702,7 +704,12 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     st_autorefresh(interval=15 * 60 * 1000, key="data_autorefresh")
-    st.markdown(f'<div style="text-align:center; font-size:0.75rem; color:{C["sub"]};"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns([85, 15], vertical_alignment="center")
+    with c1:
+        st.markdown(f'<div style="font-size:0.75rem; color:{C["sub"]}; margin-left: 10px;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
+    with c2:
+        if st.button("🔄", key="refresh_btn", help=T("refresh"), use_container_width=True):
+            st.cache_data.clear(); st.rerun()
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     grp_labels = T("group_labels")
