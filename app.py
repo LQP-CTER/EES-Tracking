@@ -176,7 +176,7 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
     color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
 .stApp{{background:{C['slate']};}}
 .block-container{{max-width:1320px;padding:0 2rem 3rem;}}
-#MainMenu,footer,header{{visibility:hidden;}}
+#MainMenu,footer{{visibility:hidden;}}
 [data-testid="stSidebar"][aria-expanded="false"]{{
     margin-left:0!important;min-width:0!important;width:0!important;overflow:hidden!important;}}
 [data-testid="collapsedControl"]{{
@@ -704,9 +704,9 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     st_autorefresh(interval=15 * 60 * 1000, key="data_autorefresh")
-    c1, c2 = st.columns([85, 15], vertical_alignment="center")
+    c1, c2 = st.columns([0.85, 0.15], gap="small", vertical_alignment="center")
     with c1:
-        st.markdown(f'<div style="font-size:0.75rem; color:{C["sub"]}; margin-left: 10px;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:0.75rem; color:{C["sub"]}; margin-top: 0.2rem;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
     with c2:
         if st.button("🔄", key="refresh_btn", help=T("refresh"), use_container_width=True):
             st.cache_data.clear(); st.rerun()
