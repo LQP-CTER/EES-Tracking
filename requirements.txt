@@ -4,4 +4,4 @@ st-gsheets-connection
 plotly>=5.18.0
 numpy
 openpyxl
-streamlit-autorefresh>=1.2.0
+streamlit-autorefresh==1.0.1
