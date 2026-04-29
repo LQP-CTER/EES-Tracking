@@ -46,7 +46,7 @@ LANG = {
         "dept_lbl":       "Department",
         "section_lbl":    "Section / Vùng",
         "date_range":     "Khoảng thời gian",
-        "sidebar_note":   "HC từ workforce, ánh xạ qua sheet Mapping.<br>Filter: Division → Department → Section.",
+        "sidebar_note":   "Filter: Division → Department → Section.",
         "viewing":        "Đang xem",
         "kpi_hc":         "Tổng Nhân Sự",    "kpi_hc_sub":      "HC của nhóm đã chọn",
         "kpi_done":       "Đã Tham Gia",      "kpi_done_sub":    "trên tổng HC",
@@ -59,13 +59,25 @@ LANG = {
         "sec_sec":  "Tiến độ theo Section / Vùng",
         "sec_trend":"Response theo ngày — tích lũy & mới",
         "top_n_dept":"Top N phòng ban",  "top_n_sec": "Top N section",
-        "col_hc":"HC", "col_done":"Đã nộp", "col_pending":"Chưa nộp",
+        "col_hc":"HC", "col_done":"Đã làm", "col_pending":"Chưa làm",
         "col_rate":"Tỷ lệ", "col_total":"Tổng cộng",
         "chart_pct":"% Hoàn thành", "chart_avg":"TB",
         "chart_new":"Mới trong ngày", "chart_cum":"% Tích lũy",
         "chart_new_y":"Response mới / ngày", "chart_cum_y":"% Tích lũy",
         "no_data":"Không có dữ liệu", "no_ts":"Chưa có timestamp hợp lệ",
         "divisions":"divisions", "departments":"phòng ban", "sections":"sections",
+        "tab_dist": "Phân bổ",
+        "sec_dist": "Phân bố tỷ lệ tham gia theo Phòng ban",
+        "dist_rate": "Tỷ lệ tham gia",
+        "dist_dept_cnt": "Số lượng phòng ban",
+        "dist_stats": "Thống kê Phòng Ban",
+        "dist_total": "Tổng số phòng ban",
+        "dist_mean": "Trung bình (Mean)",
+        "dist_median": "Trung vị (Median)",
+        "dist_exc": "Hoàn thành xuất sắc",
+        "dist_poor": "Chưa đạt tiến độ",
+        "dist_unit": "đơn vị",
+        "dist_hover": "Phòng ban",
         "group_labels": {
             "2A":"Nhóm Nhân viên Vận hành Kho",
             "2B":"Nhóm Quản lý Tuyến đầu",
@@ -106,6 +118,18 @@ LANG = {
         "chart_new_y":"New responses / day", "chart_cum_y":"% Cumulative",
         "no_data":"No data available", "no_ts":"No valid timestamps found",
         "divisions":"divisions", "departments":"departments", "sections":"sections",
+        "tab_dist": "Distribution",
+        "sec_dist": "Participation Distribution by Department",
+        "dist_rate": "Participation Rate",
+        "dist_dept_cnt": "Number of Departments",
+        "dist_stats": "Department Statistics",
+        "dist_total": "Total Departments",
+        "dist_mean": "Mean",
+        "dist_median": "Median",
+        "dist_exc": "Excellent",
+        "dist_poor": "Behind Schedule",
+        "dist_unit": "units",
+        "dist_hover": "Departments",
         "group_labels": {
             "2A":"Warehouse Operations Staff",
             "2B":"Frontline Managers",
@@ -407,7 +431,10 @@ def build_wf_lookup(df_wf: pd.DataFrame) -> tuple[dict, dict]:
             r0 = rows.iloc[0]
             info = {
                 "wf_division":   r0.get("division_name"),
+                "wf_division_vn": r0.get("division_name_vn"),
                 "wf_department": r0.get("department_name"),
+                "wf_department_vn": r0.get("department_name_vn"),
+                "wf_section":    r0.get("section_name"),
                 "wf_section_vn": r0.get("section_name_vn"),
                 "wf_team":       r0.get("team_name"),
             }
@@ -435,7 +462,7 @@ def enrich_survey(df_sv: pd.DataFrame, MAP_2AB: dict, MAP_3AB: dict,
       3A/3B: sv_label → MAP_3AB → (wf_col, wf_val) → lookup_exact(wf_col, wf_val) → thông tin WF
     """
     if len(df_sv) == 0:
-        for c in ["wf_division","wf_department","wf_section_vn","wf_team"]:
+        for c in ["wf_division","wf_division_vn","wf_department","wf_department_vn","wf_section","wf_section_vn","wf_team"]:
             df_sv[c] = None
         return df_sv
 
@@ -474,7 +501,10 @@ def enrich_survey(df_sv: pd.DataFrame, MAP_2AB: dict, MAP_3AB: dict,
         r = row.to_dict()
         r.update({
             "wf_division":   wf_info.get("wf_division"),
+            "wf_division_vn":wf_info.get("wf_division_vn"),
             "wf_department": wf_info.get("wf_department"),
+            "wf_department_vn":wf_info.get("wf_department_vn"),
+            "wf_section":    wf_info.get("wf_section"),
             "wf_section_vn": wf_info.get("wf_section_vn"),
             "wf_team":       wf_info.get("wf_team"),
         })
@@ -522,6 +552,10 @@ def _parse_2ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
             else:
                 # Vùng (bưu cục, KTC thuộc Vùng) hoặc bất kỳ trường hợp còn lại
                 sv_label = _clean(row[col_vung]) if col_vung else None
+                
+            # Nếu user không điền sub-question hoặc sub-question rỗng, lấy chính pb làm sv_label
+            if not sv_label:
+                sv_label = pb
 
         rows.append({"timestamp": ts, "survey_group": group, "sv_label": sv_label})
     return pd.DataFrame(rows)
@@ -793,7 +827,7 @@ def build_progress(wf_col: str, sv_col: str, label: str) -> pd.DataFrame:
     out["responses"] = out["responses"].fillna(0).astype(int)
     out["pending"]   = (out["hc"] - out["responses"]).clip(lower=0)
     out["pct"]       = out.apply(lambda r: (r["responses"] / r["hc"] * 100) if r["hc"] > 0 else 100.0 if r["responses"] > 0 else 0.0, axis=1).round(1)
-    return out.sort_values("hc", ascending=False).reset_index(drop=True)
+    return out.sort_values(["responses", "hc"], ascending=[False, False]).reset_index(drop=True)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -801,39 +835,48 @@ def build_progress(wf_col: str, sv_col: str, label: str) -> pd.DataFrame:
 # ══════════════════════════════════════════════════════════════
 def render_chart(df, label_col, h=360):
     if len(df)==0: return go.Figure()
-    avg = df["pct"].mean()
-    def bc(p): return C["green"] if p>=75 else C["blue"] if p>=40 else C["orange"] if p>0 else C["muted"]
     fig = go.Figure()
+    # Sort descending so the largest is at the top (with autorange='reversed')
+    df_sorted = df.copy()
+    
     fig.add_trace(go.Bar(
-        y=df[label_col], x=[100]*len(df), orientation="h",
-        marker_color="rgba(220,224,232,0.45)", marker_line_width=0,
-        hoverinfo="skip", showlegend=False,
+        y=df_sorted[label_col], x=df_sorted["responses"],
+        orientation="h", name=T("col_done"),
+        marker_color=C["navy"],
+        text=[f"{int(v):,}" if v>0 else "" for v in df_sorted["responses"]],
+        textposition="inside",
+        textfont=dict(size=10, color="white", family="SVN-Helvetica Now"),
+        hovertemplate="<b>%{y}</b><br>Đã tham gia: %{x:,}<extra></extra>",
     ))
+    
     fig.add_trace(go.Bar(
-        y=df[label_col], x=df["pct"], orientation="h",
-        marker_color=[bc(p) for p in df["pct"]], marker_line_width=0,
-        text=[f"  {p:.1f}%" for p in df["pct"]],
-        textposition="outside",
-        textfont=dict(size=10, color=C["text"], family="SVN-Helvetica Now"),
-        hovertemplate=(f"<b>%{{y}}</b><br>{T('chart_pct')}: %{{x:.1f}}%"
-                       f"<br>{T('col_done')}: %{{customdata[0]:,}} / HC: %{{customdata[1]:,}}"
-                       f"<extra></extra>"),
-        customdata=list(zip(df["responses"], df["hc"])),
-        showlegend=False,
+        y=df_sorted[label_col], x=df_sorted["pending"],
+        orientation="h", name=T("col_pending"),
+        marker_color="#f3f4f6",
+        marker_line=dict(color="#d1d5db", width=1),
+        text=[f"{int(v):,}" if v>0 else "" for v in df_sorted["pending"]],
+        textposition="inside",
+        textfont=dict(size=10, color=C["sub"], family="SVN-Helvetica Now"),
+        hovertemplate="<b>%{y}</b><br>Chưa tham gia: %{x:,}<extra></extra>",
     ))
-    fig.add_vline(x=avg, line_dash="dot", line_color=C["orange"], line_width=1.5,
-                  annotation_text=f"{T('chart_avg')}  {avg:.1f}%",
-                  annotation_position="top",
-                  annotation_font=dict(size=9, color=C["orange"], family="SVN-Helvetica Now"))
+    
+    for _, r in df_sorted.iterrows():
+        fig.add_annotation(
+            x=r["hc"], y=r[label_col],
+            text=f" {r['pct']:.1f}%",
+            xanchor="left", showarrow=False,
+            font=dict(size=11, color=C["navy"], family="SVN-Helvetica Now", weight="bold")
+        )
+        
     fig.update_layout(
         paper_bgcolor="white", plot_bgcolor="white", height=h,
-        margin=dict(l=260, r=120, t=24, b=24), barmode="overlay", bargap=0.32,
+        margin=dict(l=260, r=60, t=20, b=24), barmode="stack", bargap=0.35,
         font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
-        xaxis=dict(range=[0, min(max(df["pct"].max()+22, 110), 130)], dtick=25,
-                   showgrid=True, gridcolor=C["line"], zeroline=False,
-                   title=T("chart_pct"), title_font=dict(size=10, color=C["muted"]),
-                   tickfont=dict(size=10, color=C["muted"])),
-        yaxis=dict(showgrid=False, tickfont=dict(size=10, color=C["text"])),
+        xaxis=dict(showgrid=True, gridcolor=C["line"], zeroline=False,
+                   title_font=dict(size=10, color=C["muted"]), tickfont=dict(size=10, color=C["muted"])),
+        yaxis=dict(showgrid=False, tickfont=dict(size=10, color=C["text"]), autorange="reversed"),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10))
     )
     return fig
 
@@ -882,12 +925,21 @@ def section_wrap(title, meta, fn):
 # ══════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════
-tab1, tab2, tab3, tab4 = st.tabs([
-    T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_trend"),
+tab1, tab2, tab3, tab_dist, tab4 = st.tabs([
+    T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_dist"), T("tab_trend"),
 ])
 
+if lang == "VI":
+    c_div_wf, c_div_sv = "division_name_vn", "wf_division_vn"
+    c_dep_wf, c_dep_sv = "department_name_vn", "wf_department_vn"
+    c_sec_wf, c_sec_sv = "section_name_vn", "wf_section_vn"
+else:
+    c_div_wf, c_div_sv = "division_name", "wf_division"
+    c_dep_wf, c_dep_sv = "department_name", "wf_department"
+    c_sec_wf, c_sec_sv = "section_name", "wf_section"
+
 with tab1:
-    div_df = build_progress("division_name", "wf_division", "Division")
+    div_df = build_progress(c_div_wf, c_div_sv, "Division")
     def _t1():
         if len(div_df)==0:
             st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
@@ -897,38 +949,71 @@ with tab1:
     section_wrap(T("sec_div"),f"{len(div_df)} {T('divisions')} · HC {total_hc:,}",_t1)
 
 with tab2:
-    dept_df = build_progress("department_name", "wf_department", "Department")
+    dept_df = build_progress(c_dep_wf, c_dep_sv, "Department")
     def _t2():
         if len(dept_df)==0:
             st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        min_v = min(1, len(dept_df))
-        max_v = len(dept_df)
-        if min_v == max_v:
-            n = max_v
-        else:
-            n=st.slider(T("top_n_dept"),min_v,max_v,min(20,max_v),key="dn")
-        show=dept_df.head(n)
         c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(show,"Department",h=max(340,len(show)*48+70)),use_container_width=True)
-        with c2: st.markdown(render_table(show,"Department"),unsafe_allow_html=True)
+        with c1: st.plotly_chart(render_chart(dept_df,"Department",h=max(340,len(dept_df)*48+70)),use_container_width=True)
+        with c2: st.markdown(render_table(dept_df,"Department"),unsafe_allow_html=True)
     section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
 
 with tab3:
-    sec_df = build_progress("section_name_vn", "wf_section_vn", "Section")
+    sec_df = build_progress(c_sec_wf, c_sec_sv, "Section")
     def _t3():
         if len(sec_df)==0:
             st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        min_v = min(1, len(sec_df))
-        max_v = len(sec_df)
-        if min_v == max_v:
-            n2 = max_v
-        else:
-            n2=st.slider(T("top_n_sec"),min_v,max_v,min(25,max_v),key="sn")
-        show2=sec_df.head(n2)
         c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(show2,"Section",h=max(340,len(show2)*46+70)),use_container_width=True)
-        with c2: st.markdown(render_table(show2,"Section"),unsafe_allow_html=True)
+        with c1: st.plotly_chart(render_chart(sec_df,"Section",h=max(340,len(sec_df)*46+70)),use_container_width=True)
+        with c2: st.markdown(render_table(sec_df,"Section"),unsafe_allow_html=True)
     section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
+
+with tab_dist:
+    dept_dist_df = build_progress(c_dep_wf, c_dep_sv, "Department")
+    def _t_dist():
+        if len(dept_dist_df) == 0:
+            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+        
+        bins = [0, 25, 50, 75, 100.1]
+        labels = ["0-25%", "26-50%", "51-75%", "76-100%"]
+        dept_dist_df["bucket"] = pd.cut(dept_dist_df["pct"], bins=bins, labels=labels, right=False)
+        bucket_counts = dept_dist_df["bucket"].value_counts().reindex(labels, fill_value=0)
+        
+        col_hist, col_stats = st.columns([65, 35])
+        with col_hist:
+            fig_hist = go.Figure()
+            hist_colors = [C["red"], C["orange"], C["blue"], C["green"]]
+            fig_hist.add_trace(go.Bar(
+                x=labels, y=bucket_counts.values,
+                marker_color=hist_colors,
+                text=[f"{int(v)}" for v in bucket_counts.values],
+                textposition="outside",
+                textfont=dict(size=11, color=C["text"], family="SVN-Helvetica Now"),
+                hovertemplate=f"<b>%{{x}}</b><br>{T('dist_hover')}: %{{y}}<extra></extra>",
+            ))
+            fig_hist.update_layout(
+                paper_bgcolor="white", plot_bgcolor="white", height=320,
+                margin=dict(l=40, r=20, t=20, b=40), bargap=0.2,
+                font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
+                xaxis=dict(title_text=T("dist_rate")),
+                yaxis=dict(title_text=T("dist_dept_cnt"), dtick=5)
+            )
+            st.plotly_chart(fig_hist, use_container_width=True)
+            
+        with col_stats:
+            mean_p = dept_dist_df["pct"].mean()
+            median_p = dept_dist_df["pct"].median()
+            st.markdown(f"""
+            <div style="padding:20px; background:{C['bg']}; border:1px solid {C['border']}; border-radius:4px; line-height:2.2; font-size:.85rem;">
+                <strong style="font-size:.75rem; text-transform:uppercase; color:{C['sub']};">{T('dist_stats')}</strong><br/>
+                {T('dist_total')}: <strong style="color:{C['text']}">{len(dept_dist_df)}</strong><br/>
+                {T('dist_mean')}: <strong style="color:{C['navy']}">{mean_p:.1f}%</strong><br/>
+                {T('dist_median')}: <strong style="color:{C['navy']}">{median_p:.1f}%</strong><br/>
+                {T('dist_exc')} (≥75%): <strong style="color:{C['green']}">{len(dept_dist_df[dept_dist_df['pct'] >= 75])}</strong> {T('dist_unit')}<br/>
+                {T('dist_poor')} (<50%): <strong style="color:{C['red']}">{len(dept_dist_df[dept_dist_df['pct'] < 50])}</strong> {T('dist_unit')}
+            </div>
+            """, unsafe_allow_html=True)
+    section_wrap(T("sec_dist"), "", _t_dist)
 
 with tab4:
     def _t4():
@@ -941,35 +1026,40 @@ with tab4:
         daily["cum"]=daily["new"].cumsum()
         daily["pct_cum"]=(daily["cum"]/total_hc*100) if total_hc>0 else 0
         daily["lbl"]=daily["_d"].apply(lambda d:d.strftime("%d/%m"))
+        
         fig_t=make_subplots(specs=[[{"secondary_y":True}]])
-        max_new=daily["new"].max() or 1
         fig_t.add_trace(go.Bar(
             x=daily["lbl"],y=daily["new"],
-            marker_color=[f"rgba(0,111,173,{0.3+0.6*(v/max_new)})" for v in daily["new"]],
+            marker_color="#9ca3af",
             marker_line_width=0,name=T("chart_new"),
-            hovertemplate=f"<b>%{{x}}</b>  ·  %{{y:,}}<extra></extra>",
+            opacity=0.6,
+            hovertemplate=f"<b>%{{x}}</b><br>{T('chart_new')}: %{{y:,}}<extra></extra>",
         ),secondary_y=False)
         fig_t.add_trace(go.Scatter(
-            x=daily["lbl"],y=daily["pct_cum"],mode="lines+markers",
-            line=dict(color=C["orange"],width=2.5,shape="spline"),
-            marker=dict(size=6,color=C["orange"],line=dict(width=1.5,color="white")),
+            x=daily["lbl"],y=daily["pct_cum"],
+            mode="lines+markers+text",
+            line=dict(color=C["navy"],width=2.5),
+            marker=dict(size=5,color=C["navy"]),
+            text=[f"{v:.1f}%" for v in daily["pct_cum"]],
+            textposition="top center",
+            textfont=dict(size=9,color=C["text"]),
             name=T("chart_cum"),
-            hovertemplate=f"<b>%{{x}}</b>  ·  %{{y:.1f}}%<extra></extra>",
+            hovertemplate=f"<b>%{{x}}</b><br>{T('chart_cum')}: %{{y:.1f}}%<extra></extra>",
         ),secondary_y=True)
+        
         fig_t.update_layout(
-            paper_bgcolor="white",plot_bgcolor="white",height=360,bargap=0.25,showlegend=True,
-            margin=dict(l=40,r=70,t=16,b=52),
+            paper_bgcolor="white",plot_bgcolor="white",height=380,bargap=0.3,showlegend=True,
+            margin=dict(l=40,r=50,t=16,b=50),
             font=dict(family="SVN-Helvetica Now",size=11,color=C["text"]),
-            legend=dict(orientation="h",y=1.06,x=1,xanchor="right",
-                        bgcolor="rgba(255,255,255,.9)",font=dict(size=11),
-                        bordercolor=C["border"],borderwidth=1),
+            legend=dict(orientation="h",yanchor="bottom",y=1.02,xanchor="right",x=1,
+                        bgcolor="rgba(0,0,0,0)",font=dict(size=10)),
             xaxis=dict(type="category",tickangle=-45,showgrid=False,
                        tickfont=dict(size=10,color=C["muted"])),
         )
         fig_t.update_yaxes(title_text=T("chart_new_y"),title_font=dict(size=10,color=C["sub"]),
-                           showgrid=True,gridcolor=C["line"],tickfont=dict(size=10,color=C["muted"]),secondary_y=False)
+                           showgrid=False,tickfont=dict(size=10,color=C["muted"]),secondary_y=False)
         fig_t.update_yaxes(title_text=T("chart_cum_y"),title_font=dict(size=10,color=C["sub"]),
-                           range=[0,108],showgrid=False,tickfont=dict(size=10,color=C["muted"]),secondary_y=True)
+                           range=[0,105],showgrid=True,gridcolor="#eee",tickfont=dict(size=10,color=C["muted"]),secondary_y=True)
         st.plotly_chart(fig_t,use_container_width=True)
     section_wrap(T("sec_trend"),"",_t4)
 
