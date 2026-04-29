@@ -3,4 +3,4 @@ pandas>=2.0.0
 st-gsheets-connection
 plotly>=5.18.0
 numpy
-openpyxl
+openpyxlstreamlit-autorefresh
