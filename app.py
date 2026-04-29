@@ -381,6 +381,16 @@ def load_workforce_and_mapping() -> tuple[pd.DataFrame, dict, dict]:
         df_wf[col] = df_wf[col].astype(str).str.strip().replace({"nan":None,"":None,"None":None})
     df_wf["status"] = pd.to_numeric(df_wf.get("status", pd.Series()), errors="coerce")
 
+    # ── Hierarchical Fill to resolve missing classifications ──
+    for c_div, c_dept, c_sec in [
+        ("division_name_vn", "department_name_vn", "section_name_vn"),
+        ("division_name", "department_name", "section_name")
+    ]:
+        if c_div in df_wf.columns and c_dept in df_wf.columns:
+            df_wf[c_dept] = df_wf[c_dept].fillna(df_wf[c_div])
+        if c_dept in df_wf.columns and c_sec in df_wf.columns:
+            df_wf[c_sec] = df_wf[c_sec].fillna(df_wf[c_dept])
+
     # ── Parse Mapping sheet ──
     MAP_2AB: dict[str, str]            = {}  # sv_val → wf_value (tìm trên tất cả cột)
     MAP_3AB: dict[str, tuple[str,str]] = {}  # sv_val → (wf_col, wf_val)
@@ -842,6 +852,10 @@ def build_progress(wf_col: str, sv_col: str, label: str) -> pd.DataFrame:
     out["responses"] = out["responses"].fillna(0).astype(int)
     out["pending"]   = (out["hc"] - out["responses"]).clip(lower=0)
     out["pct"]       = out.apply(lambda r: (r["responses"] / r["hc"] * 100) if r["hc"] > 0 else 100.0 if r["responses"] > 0 else 0.0, axis=1).round(1)
+    
+    # Filter out 'Chưa xác định' so it never shows in charts
+    out = out[out[label] != "Chưa xác định"]
+    
     return out.sort_values(["responses", "hc"], ascending=[False, False]).reset_index(drop=True)
 
 
