@@ -357,7 +357,7 @@ def delta_html(v):
 # ══════════════════════════════════════════════════════════════
 # LOAD WORKFORCE + MAPPING
 # ══════════════════════════════════════════════════════════════
-@st.cache_data(ttl=900, show_spinner="Đang tải Workforce & Mapping…")
+@st.cache_data(ttl=43200, show_spinner="Đang tải Workforce & Mapping…")
 def load_workforce_and_mapping() -> tuple[pd.DataFrame, dict, dict]:
     export_url = f"https://docs.google.com/spreadsheets/d/{WF_SHEET_ID}/export?format=xlsx"
     try:
@@ -704,12 +704,7 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     st_autorefresh(interval=15 * 60 * 1000, key="data_autorefresh")
-    c1, c2 = st.columns([0.85, 0.15], gap="small", vertical_alignment="center")
-    with c1:
-        st.markdown(f'<div style="font-size:0.75rem; color:{C["sub"]}; margin-top: 0.2rem;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
-    with c2:
-        if st.button("🔄", key="refresh_btn", help=T("refresh"), use_container_width=True):
-            st.cache_data.clear(); st.rerun()
+    st.markdown(f'<div style="text-align:center; font-size:0.75rem; color:{C["sub"]}; margin-top: 0.5rem;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     grp_labels = T("group_labels")
