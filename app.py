@@ -191,9 +191,16 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 [data-testid="stSidebar"] *{{color:{C['navy']}!important;}}
 [data-testid="stSidebar"] .stMultiSelect>label,
 [data-testid="stSidebar"] .stCheckbox>label,
-[data-testid="stSidebar"] .stDateInput>label{{
+[data-testid="stSidebar"] .stDateInput>label,
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
     color:{C['sub']}!important;font-size:.68rem!important;
-    font-weight:700!important;text-transform:uppercase!important;letter-spacing:.1em!important;}}
+    font-weight:700!important;text-transform:uppercase!important;letter-spacing:.1em!important;
+}}
+[data-testid="stSidebar"] [data-testid="stPills"] button {{
+    font-family:'SVN-Helvetica Now',sans-serif!important;
+    font-weight:600!important;
+}}
 [data-testid="stSidebar"] [data-baseweb="select"] div,
 [data-testid="stSidebar"] [data-baseweb="input"] input,
 [data-testid="stSidebar"] [data-baseweb="base-input"]{{
@@ -730,8 +737,8 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     grp_labels = T("group_labels")
-    sel_groups = st.multiselect(
-        T("survey_group"), ALL_GROUPS, default=ALL_GROUPS,
+    sel_groups = st.pills(
+        T("survey_group"), ALL_GROUPS, selection_mode="multi", default=ALL_GROUPS,
         format_func=lambda g: f"{g}  ·  {grp_labels[g]}",
     )
 
