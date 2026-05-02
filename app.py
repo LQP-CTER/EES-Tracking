@@ -656,22 +656,22 @@ def load_all_surveys_enriched(
     _map_2ab: dict,
     _map_3ab: dict,
 ) -> tuple[pd.DataFrame, list]:
-    parts, warnings = [], []
+    parts, warn_msgs = [], []
     for g in ALL_GROUPS:
         raw, err = _load_raw_survey(g)
-        if err:   warnings.append(f"[{g}] {err}"); continue
+        if err:   warn_msgs.append(f"[{g}] {err}"); continue
         if len(raw) == 0: continue
         try:
             parsed = _parse_2ab(raw, g) if g in ("2A","2B") else _parse_3ab(raw, g)
             parts.append(parsed)
         except Exception as e:
-            warnings.append(f"[{g}] Parse error: {str(e)[:100]}")
+            warn_msgs.append(f"[{g}] Parse error: {str(e)[:100]}")
 
     if not parts:
         empty = pd.DataFrame(columns=["timestamp","survey_group","sv_label",
                                        "wf_division","wf_department","wf_section_vn","wf_team"])
         empty["timestamp"] = pd.NaT
-        return empty, warnings
+        return empty, warn_msgs
 
     df_all = pd.concat(parts, ignore_index=True)
     df_all["timestamp"] = pd.to_datetime(df_all["timestamp"], errors="coerce")
@@ -681,7 +681,7 @@ def load_all_surveys_enriched(
 
     # Enrich
     df_enriched = enrich_survey(df_all, _map_2ab, _map_3ab, lookup_exact, lookup_fallback)
-    return df_enriched, warnings
+    return df_enriched, warn_msgs
 
 
 # ══════════════════════════════════════════════════════════════
