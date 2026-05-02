@@ -742,8 +742,11 @@ with st.sidebar:
     )
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
+    only_active = st.checkbox(T("only_active"), value=True)
 
     wf_base = df_wf_raw.copy()
+    if only_active:
+        wf_base = wf_base[wf_base["status"] == 1]
     if sel_groups: wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
 
     div_opts  = sorted(x for x in wf_base["division_name"].dropna().unique() if x)
@@ -765,6 +768,7 @@ with st.sidebar:
                                   min_value=ts_min, max_value=ts_max)
     else:
         date_rng = None
+        
     st.markdown(f'<p class="sb-note">{T("sidebar_note")}</p>', unsafe_allow_html=True)
 
 
@@ -772,6 +776,8 @@ with st.sidebar:
 # APPLY FILTERS
 # ══════════════════════════════════════════════════════════════
 df_wf = df_wf_raw.copy()
+if only_active:
+    df_wf = df_wf[df_wf["status"] == 1]
 if sel_groups: df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
 if sel_div:    df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
 if sel_dept:   df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
