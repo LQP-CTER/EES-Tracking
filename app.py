@@ -736,10 +736,17 @@ with st.sidebar:
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     grp_labels = T("group_labels")
+    if "sg_val" not in st.session_state:
+        st.session_state.sg_val = ALL_GROUPS
+
+    def update_sg():
+        st.session_state.sg_val = st.session_state.sel_groups_widget
+
     sel_groups = st.pills(
-        T("survey_group"), ALL_GROUPS, selection_mode="multi", default=ALL_GROUPS,
+        T("survey_group"), ALL_GROUPS, selection_mode="multi", default=st.session_state.sg_val,
         format_func=lambda g: f"{g}  ·  {grp_labels[g]}",
-        key="sel_groups_widget"
+        key="sel_groups_widget",
+        on_change=update_sg
     )
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
