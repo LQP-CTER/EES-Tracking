@@ -717,13 +717,11 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     with c1:
         if st.button("Tiếng Việt", key="lv",
-                     type="primary" if lang=="VI" else "secondary",
-                     use_container_width=True):
+                     type="primary" if lang=="VI" else "secondary"):
             st.session_state["lang"] = "VI"; st.rerun()
     with c2:
         if st.button("English", key="le",
-                     type="primary" if lang=="EN" else "secondary",
-                     use_container_width=True):
+                     type="primary" if lang=="EN" else "secondary"):
             st.session_state["lang"] = "EN"; st.rerun()
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
@@ -742,7 +740,7 @@ with st.sidebar:
         st.session_state.sg_val = ALL_GROUPS
 
     def update_sg():
-        st.session_state.sg_val = st.session_state.sel_groups_widget
+        st.session_state.sg_val = st.session_state.get("sel_groups_widget", st.session_state.sg_val)
 
     sel_groups = st.pills(
         T("survey_group"), ALL_GROUPS, selection_mode="multi", default=st.session_state.sg_val,
