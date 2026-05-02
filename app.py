@@ -635,6 +635,9 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
 
 @st.cache_data(ttl=600, show_spinner=False)
 def _load_raw_survey(group: str) -> tuple[pd.DataFrame, str | None]:
+    if group not in SURVEY_IDS:
+        return pd.DataFrame(), None
+        
     try:
         conn = st.connection(f"survey_{group}", type=GSheetsConnection)
         df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), worksheet="Form Responses 1", ttl=0)
