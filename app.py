@@ -631,11 +631,11 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
 def _load_raw_survey(group: str) -> tuple[pd.DataFrame, str | None]:
     try:
         conn = st.connection(f"survey_{group}", type=GSheetsConnection)
-        df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), worksheet="Form Responses 1")
+        df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), worksheet="Form Responses 1", ttl=0)
     except Exception:
         try:
             conn = st.connection(f"survey_{group}", type=GSheetsConnection)
-            df = conn.read(spreadsheet=_url(SURVEY_IDS[group]))
+            df = conn.read(spreadsheet=_url(SURVEY_IDS[group]), ttl=0)
         except Exception as e:
             return pd.DataFrame(), str(e)[:150]
     return df.dropna(how="all"), None
@@ -731,8 +731,7 @@ with st.sidebar:
         st.markdown(f'<div style="font-size:0.75rem; color:{C["sub"]}; margin-top: 0.2rem; text-align: right;"><span style="color:{C["green"]}">●</span> {T("auto_refresh")}</div>', unsafe_allow_html=True)
     with c2:
         if st.button("↻", key="refresh_btn", help=T("refresh"), type="tertiary"):
-            _load_raw_survey.clear()
-            load_all_surveys_enriched.clear()
+            st.cache_data.clear()
             st.rerun()
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
