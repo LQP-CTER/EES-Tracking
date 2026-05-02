@@ -83,6 +83,8 @@ LANG = {
         "dist_unit": "đơn vị",
         "dist_hover": "Phòng ban",
         "group_labels": {
+            "1A":"Nhóm NV Giao nhận",
+            "1B":"Nhóm Tài xế Vận tải",
             "2A":"Nhóm Nhân viên Vận hành Kho",
             "2B":"Nhóm Quản lý Tuyến đầu",
             "3A":"Nhóm Nhân viên Văn phòng HO",
@@ -136,6 +138,8 @@ LANG = {
         "dist_unit": "units",
         "dist_hover": "Departments",
         "group_labels": {
+            "1A":"Delivery Staff",
+            "1B":"Truck Drivers",
             "2A":"Warehouse Operations Staff",
             "2B":"Frontline Managers",
             "3A":"HO Office Staff",
@@ -145,7 +149,7 @@ LANG = {
         "render":"Render",
     },
 }
-ALL_GROUPS = ["2A", "2B", "3A", "3B"]
+ALL_GROUPS = ["1A", "1B", "2A", "2B", "3A", "3B"]
 
 if "lang" not in st.session_state:
     st.session_state["lang"] = "VI"
