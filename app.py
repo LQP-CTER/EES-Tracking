@@ -627,7 +627,7 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)
 def _load_raw_survey(group: str) -> tuple[pd.DataFrame, str | None]:
     try:
         conn = st.connection(f"survey_{group}", type=GSheetsConnection)
@@ -641,7 +641,7 @@ def _load_raw_survey(group: str) -> tuple[pd.DataFrame, str | None]:
     return df.dropna(how="all"), None
 
 
-@st.cache_data(ttl=900, show_spinner="Đang tải dữ liệu khảo sát…")
+@st.cache_data(ttl=600, show_spinner="Đang tải dữ liệu khảo sát…")
 def load_all_surveys_enriched(
     _df_wf: pd.DataFrame,
     _map_2ab: dict,
