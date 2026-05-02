@@ -739,33 +739,34 @@ with st.sidebar:
     sel_groups = st.pills(
         T("survey_group"), ALL_GROUPS, selection_mode="multi", default=ALL_GROUPS,
         format_func=lambda g: f"{g}  ·  {grp_labels[g]}",
+        key="sel_groups_widget"
     )
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
-    only_active = st.checkbox(T("only_active"), value=True)
+    only_active = st.checkbox(T("only_active"), value=True, key="only_active_widget")
 
     wf_base = df_wf_raw.copy()
     if only_active:
         wf_base = wf_base[wf_base["status"] == 1]
-    if sel_groups: wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
+    wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
 
     div_opts  = sorted(x for x in wf_base["division_name"].dropna().unique() if x)
-    sel_div   = st.multiselect(T("division_lbl"), div_opts)
+    sel_div   = st.multiselect(T("division_lbl"), div_opts, key="sel_div_widget")
 
     wf_tmp = wf_base[wf_base["division_name"].isin(sel_div)] if sel_div else wf_base
     dept_opts = sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
-    sel_dept  = st.multiselect(T("dept_lbl"), dept_opts)
+    sel_dept  = st.multiselect(T("dept_lbl"), dept_opts, key="sel_dept_widget")
 
     if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
     sec_opts = sorted(x for x in wf_tmp["section_name_vn"].dropna().unique() if x)
-    sel_sec  = st.multiselect(T("section_lbl"), sec_opts)
+    sel_sec  = st.multiselect(T("section_lbl"), sec_opts, key="sel_sec_widget")
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     if df_sv_raw["timestamp"].notna().any():
         ts_min = df_sv_raw["timestamp"].min().date()
         ts_max = df_sv_raw["timestamp"].max().date()
         date_rng = st.date_input(T("date_range"), (ts_min, ts_max),
-                                  min_value=ts_min, max_value=ts_max)
+                                  min_value=ts_min, max_value=ts_max, key="date_rng_widget")
     else:
         date_rng = None
         
@@ -778,13 +779,13 @@ with st.sidebar:
 df_wf = df_wf_raw.copy()
 if only_active:
     df_wf = df_wf[df_wf["status"] == 1]
-if sel_groups: df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
+df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
 if sel_div:    df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
 if sel_dept:   df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
 if sel_sec:    df_wf = df_wf[df_wf["section_name_vn"].isin(sel_sec)]
 
 df_sv = df_sv_raw.copy()
-if sel_groups: df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
+df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
 if sel_div:    df_sv = df_sv[df_sv["wf_division"].isin(sel_div)]
 if sel_dept:   df_sv = df_sv[df_sv["wf_department"].isin(sel_dept)]
 if sel_sec:    df_sv = df_sv[df_sv["wf_section_vn"].isin(sel_sec)]
