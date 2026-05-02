@@ -748,7 +748,7 @@ with st.sidebar:
     wf_base = df_wf_raw.copy()
     if only_active:
         wf_base = wf_base[wf_base["status"] == 1]
-    wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
+    if sel_groups: wf_base = wf_base[wf_base["survey_group"].isin(sel_groups)]
 
     div_opts  = sorted(x for x in wf_base["division_name"].dropna().unique() if x)
     sel_div   = st.multiselect(T("division_lbl"), div_opts, key="sel_div_widget")
@@ -779,13 +779,13 @@ with st.sidebar:
 df_wf = df_wf_raw.copy()
 if only_active:
     df_wf = df_wf[df_wf["status"] == 1]
-df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
+if sel_groups: df_wf = df_wf[df_wf["survey_group"].isin(sel_groups)]
 if sel_div:    df_wf = df_wf[df_wf["division_name"].isin(sel_div)]
 if sel_dept:   df_wf = df_wf[df_wf["department_name"].isin(sel_dept)]
 if sel_sec:    df_wf = df_wf[df_wf["section_name_vn"].isin(sel_sec)]
 
 df_sv = df_sv_raw.copy()
-df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
+if sel_groups: df_sv = df_sv[df_sv["survey_group"].isin(sel_groups)]
 if sel_div:    df_sv = df_sv[df_sv["wf_division"].isin(sel_div)]
 if sel_dept:   df_sv = df_sv[df_sv["wf_department"].isin(sel_dept)]
 if sel_sec:    df_sv = df_sv[df_sv["wf_section_vn"].isin(sel_sec)]
