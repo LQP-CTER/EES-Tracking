@@ -11,9 +11,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from streamlit_gsheets import GSheetsConnection
 from streamlit_autorefresh import st_autorefresh
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import unicodedata, re
 
+# ══════════════════════════════════════════════════════════════
+ICT = timezone(timedelta(hours=7))
 # ══════════════════════════════════════════════════════════════
 # PAGE CONFIG
 # ══════════════════════════════════════════════════════════════
@@ -678,7 +680,7 @@ def load_all_surveys_enriched(
 # ══════════════════════════════════════════════════════════════
 # HEADER
 # ══════════════════════════════════════════════════════════════
-now_str = datetime.now().strftime("%d/%m/%Y  %H:%M")
+now_str = datetime.now(ICT).strftime("%d/%m/%Y  %H:%M")
 st.markdown(f"""
 <div class="site-header">
   <div class="hdr-accent"></div>
@@ -798,7 +800,7 @@ if date_rng and isinstance(date_rng,(tuple,list)) and len(date_rng)==2:
 # ══════════════════════════════════════════════════════════════
 # KPI
 # ══════════════════════════════════════════════════════════════
-today = datetime.now().date(); yesterday = today - timedelta(days=1)
+today = datetime.now(ICT).date(); yesterday = today - timedelta(days=1)
 total_hc = len(df_wf); total_rs = len(df_sv)
 pct_done = (total_rs/total_hc*100) if total_hc>0 else 0
 pending  = max(total_hc-total_rs, 0)
