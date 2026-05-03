@@ -404,6 +404,20 @@ def load_workforce_and_mapping() -> tuple[pd.DataFrame, dict, dict]:
         if c_dept in df_wf.columns and c_sec in df_wf.columns:
             df_wf[c_sec] = df_wf[c_sec].fillna(df_wf[c_dept])
 
+    # Bắt buộc ép Vận hành GXT về Giao Hàng Nặng (Vận hành B2B)
+    mask_gxt = (
+        df_wf.get("department_name_vn", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False) |
+        df_wf.get("section_name_vn", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False) |
+        df_wf.get("department_name", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False) |
+        df_wf.get("section_name", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False) |
+        df_wf.get("team_name_vn", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False) |
+        df_wf.get("team_name", pd.Series(dtype=str)).str.contains("Vận hành GXT", case=False, na=False)
+    )
+    if "division_name" in df_wf.columns:
+        df_wf.loc[mask_gxt, "division_name"] = "Giao Hàng Nặng (Vận hành B2B)"
+    if "division_name_vn" in df_wf.columns:
+        df_wf.loc[mask_gxt, "division_name_vn"] = "Giao Hàng Nặng (Vận hành B2B)"
+
     # ── Parse Mapping sheet ──
     MAP_2AB: dict[str, str]            = {}  # sv_val → wf_value (tìm trên tất cả cột)
     MAP_3AB: dict[str, tuple[str,str]] = {}  # sv_val → (wf_col, wf_val)
