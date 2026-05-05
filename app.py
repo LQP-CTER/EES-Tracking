@@ -784,7 +784,7 @@ with st.sidebar:
     if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
     sec_opts = sorted(x for x in wf_tmp["section_name_vn"].dropna().unique() if x)
     
-    is_only_3b = (sel_groups is not None and isinstance(sel_groups, list) and len(sel_groups) == 1 and sel_groups[0] == "3B")
+    is_only_3b = bool(sel_groups) and list(sel_groups) == ["3B"]
     sel_sec  = st.multiselect(T("section_lbl"), sec_opts, key="sel_sec_widget", disabled=is_only_3b)
     if is_only_3b:
         sel_sec = []
