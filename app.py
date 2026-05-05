@@ -994,9 +994,15 @@ def section_wrap(title, meta, fn):
 # ══════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════
-tab1, tab2, tab3, tab_dist, tab4 = st.tabs([
-    T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_dist"), T("tab_trend"),
-])
+if is_only_3b:
+    tab1, tab2, tab_dist, tab4 = st.tabs([
+        T("tab_div"), T("tab_dept"), T("tab_dist"), T("tab_trend"),
+    ])
+    tab3 = None
+else:
+    tab1, tab2, tab3, tab_dist, tab4 = st.tabs([
+        T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_dist"), T("tab_trend"),
+    ])
 
 if lang == "VI":
     c_div_wf, c_div_sv = "division_name_vn", "wf_division_vn"
@@ -1027,15 +1033,16 @@ with tab2:
         with c2: st.markdown(render_table(dept_df,"Department"),unsafe_allow_html=True)
     section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
 
-with tab3:
-    sec_df = build_progress(c_sec_wf, c_sec_sv, "Section")
-    def _t3():
-        if len(sec_df)==0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(sec_df,"Section",h=max(340,len(sec_df)*46+70)),use_container_width=True)
-        with c2: st.markdown(render_table(sec_df,"Section"),unsafe_allow_html=True)
-    section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
+if tab3:
+    with tab3:
+        sec_df = build_progress(c_sec_wf, c_sec_sv, "Section")
+        def _t3():
+            if len(sec_df)==0:
+                st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+            c1,c2=st.columns([55,45])
+            with c1: st.plotly_chart(render_chart(sec_df,"Section",h=max(340,len(sec_df)*46+70)),use_container_width=True)
+            with c2: st.markdown(render_table(sec_df,"Section"),unsafe_allow_html=True)
+        section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
 
 with tab_dist:
     dept_dist_df = build_progress(c_dep_wf, c_dep_sv, "Department")
