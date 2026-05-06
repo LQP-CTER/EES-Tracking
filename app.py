@@ -181,7 +181,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stApp"],.stApp{{
 html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!important;
     color:{C['text']}!important;-webkit-font-smoothing:antialiased;}}
 .stApp{{background:{C['slate']};}}
-.block-container{{max-width:1320px;padding:0 2rem 3rem;}}
+.block-container{{max-width:100%;padding:0 2rem 3rem;}}
 #MainMenu,footer{{visibility:hidden;}}
 [data-testid="stSidebar"][aria-expanded="false"]{{
     margin-left:0!important;min-width:0!important;width:0!important;overflow:hidden!important;}}
