@@ -786,17 +786,19 @@ with st.sidebar:
     div_opts  = sorted(x for x in wf_base["division_name"].dropna().unique() if x)
     sel_div   = st.multiselect(T("division_lbl"), div_opts, key="sel_div_widget")
 
-    wf_tmp = wf_base[wf_base["division_name"].isin(sel_div)] if sel_div else wf_base
-    dept_opts = sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
-    sel_dept  = st.multiselect(T("dept_lbl"), dept_opts, key="sel_dept_widget")
-
-    if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
-    sec_opts = sorted(x for x in wf_tmp["section_name_vn"].dropna().unique() if x)
-    
     is_only_3b = bool(sel_groups) and list(sel_groups) == ["3B"]
-    sel_sec  = st.multiselect(T("section_lbl"), sec_opts, key="sel_sec_widget", disabled=is_only_3b)
-    if is_only_3b:
-        sel_sec = []
+    
+    sel_dept = []
+    sel_sec  = []
+    
+    if not is_only_3b:
+        wf_tmp = wf_base[wf_base["division_name"].isin(sel_div)] if sel_div else wf_base
+        dept_opts = sorted(x for x in wf_tmp["department_name"].dropna().unique() if x)
+        sel_dept  = st.multiselect(T("dept_lbl"), dept_opts, key="sel_dept_widget")
+
+        if sel_dept: wf_tmp = wf_tmp[wf_tmp["department_name"].isin(sel_dept)]
+        sec_opts = sorted(x for x in wf_tmp["section_name_vn"].dropna().unique() if x)
+        sel_sec  = st.multiselect(T("section_lbl"), sec_opts, key="sel_sec_widget")
 
     st.markdown('<hr class="sb-div">', unsafe_allow_html=True)
     if df_sv_raw["timestamp"].notna().any():
@@ -1004,10 +1006,10 @@ def section_wrap(title, meta, fn):
 # TABS
 # ══════════════════════════════════════════════════════════════
 if is_only_3b:
-    tab1, tab2, tab_dist, tab4 = st.tabs([
-        T("tab_div"), T("tab_dept"), T("tab_dist"), T("tab_trend"),
+    tab1, tab4 = st.tabs([
+        T("tab_div"), T("tab_trend"),
     ])
-    tab3 = None
+    tab2 = tab3 = tab_dist = None
 else:
     tab1, tab2, tab3, tab_dist, tab4 = st.tabs([
         T("tab_div"), T("tab_dept"), T("tab_sec"), T("tab_dist"), T("tab_trend"),
@@ -1032,15 +1034,16 @@ with tab1:
         with c2: st.markdown(render_table(div_df,"Division"),unsafe_allow_html=True)
     section_wrap(T("sec_div"),f"{len(div_df)} {T('divisions')} · HC {total_hc:,}",_t1)
 
-with tab2:
-    dept_df = build_progress(c_dep_wf, c_dep_sv, "Department")
-    def _t2():
-        if len(dept_df)==0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        c1,c2=st.columns([55,45])
-        with c1: st.plotly_chart(render_chart(dept_df,"Department",h=max(340,len(dept_df)*48+70)),use_container_width=True)
-        with c2: st.markdown(render_table(dept_df,"Department"),unsafe_allow_html=True)
-    section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
+if tab2:
+    with tab2:
+        dept_df = build_progress(c_dep_wf, c_dep_sv, "Department")
+        def _t2():
+            if len(dept_df)==0:
+                st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
+            c1,c2=st.columns([55,45])
+            with c1: st.plotly_chart(render_chart(dept_df,"Department",h=max(340,len(dept_df)*48+70)),use_container_width=True)
+            with c2: st.markdown(render_table(dept_df,"Department"),unsafe_allow_html=True)
+        section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
 
 if tab3:
     with tab3:
@@ -1053,52 +1056,53 @@ if tab3:
             with c2: st.markdown(render_table(sec_df,"Section"),unsafe_allow_html=True)
         section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
 
-with tab_dist:
-    dept_dist_df = build_progress(c_dep_wf, c_dep_sv, "Department")
-    def _t_dist():
-        if len(dept_dist_df) == 0:
-            st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        
-        bins = [0, 25, 50, 75, 100.1]
-        labels = ["0-25%", "26-50%", "51-75%", "76-100%"]
-        dept_dist_df["bucket"] = pd.cut(dept_dist_df["pct"], bins=bins, labels=labels, right=False)
-        bucket_counts = dept_dist_df["bucket"].value_counts().reindex(labels, fill_value=0)
-        
-        col_hist, col_stats = st.columns([65, 35])
-        with col_hist:
-            fig_hist = go.Figure()
-            hist_colors = [C["red"], C["orange"], C["blue"], C["green"]]
-            fig_hist.add_trace(go.Bar(
-                x=labels, y=bucket_counts.values,
-                marker_color=hist_colors,
-                text=[f"{int(v)}" for v in bucket_counts.values],
-                textposition="outside",
-                textfont=dict(size=11, color=C["text"], family="SVN-Helvetica Now"),
-                hovertemplate=f"<b>%{{x}}</b><br>{T('dist_hover')}: %{{y}}<extra></extra>",
-            ))
-            fig_hist.update_layout(
-                paper_bgcolor="white", plot_bgcolor="white", height=320,
-                margin=dict(l=40, r=20, t=20, b=40), bargap=0.2,
-                font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
-                xaxis=dict(title_text=T("dist_rate")),
-                yaxis=dict(title_text=T("dist_dept_cnt"), dtick=5)
-            )
-            st.plotly_chart(fig_hist, use_container_width=True)
+if tab_dist:
+    with tab_dist:
+        dept_dist_df = build_progress(c_dep_wf, c_dep_sv, "Department")
+        def _t_dist():
+            if len(dept_dist_df) == 0:
+                st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
             
-        with col_stats:
-            mean_p = dept_dist_df["pct"].mean()
-            median_p = dept_dist_df["pct"].median()
-            st.markdown(f"""
-            <div style="padding:20px; background:{C['bg']}; border:1px solid {C['border']}; border-radius:4px; line-height:2.2; font-size:.85rem;">
-                <strong style="font-size:.75rem; text-transform:uppercase; color:{C['sub']};">{T('dist_stats')}</strong><br/>
-                {T('dist_total')}: <strong style="color:{C['text']}">{len(dept_dist_df)}</strong><br/>
-                {T('dist_mean')}: <strong style="color:{C['navy']}">{mean_p:.1f}%</strong><br/>
-                {T('dist_median')}: <strong style="color:{C['navy']}">{median_p:.1f}%</strong><br/>
-                {T('dist_exc')} (≥75%): <strong style="color:{C['green']}">{len(dept_dist_df[dept_dist_df['pct'] >= 75])}</strong> {T('dist_unit')}<br/>
-                {T('dist_poor')} (<50%): <strong style="color:{C['red']}">{len(dept_dist_df[dept_dist_df['pct'] < 50])}</strong> {T('dist_unit')}
-            </div>
-            """, unsafe_allow_html=True)
-    section_wrap(T("sec_dist"), "", _t_dist)
+            bins = [0, 25, 50, 75, 100.1]
+            labels = ["0-25%", "26-50%", "51-75%", "76-100%"]
+            dept_dist_df["bucket"] = pd.cut(dept_dist_df["pct"], bins=bins, labels=labels, right=False)
+            bucket_counts = dept_dist_df["bucket"].value_counts().reindex(labels, fill_value=0)
+            
+            col_hist, col_stats = st.columns([65, 35])
+            with col_hist:
+                fig_hist = go.Figure()
+                hist_colors = [C["red"], C["orange"], C["blue"], C["green"]]
+                fig_hist.add_trace(go.Bar(
+                    x=labels, y=bucket_counts.values,
+                    marker_color=hist_colors,
+                    text=[f"{int(v)}" for v in bucket_counts.values],
+                    textposition="outside",
+                    textfont=dict(size=11, color=C["text"], family="SVN-Helvetica Now"),
+                    hovertemplate=f"<b>%{{x}}</b><br>{T('dist_hover')}: %{{y}}<extra></extra>",
+                ))
+                fig_hist.update_layout(
+                    paper_bgcolor="white", plot_bgcolor="white", height=320,
+                    margin=dict(l=40, r=20, t=20, b=40), bargap=0.2,
+                    font=dict(family="SVN-Helvetica Now", size=11, color=C["text"]),
+                    xaxis=dict(title_text=T("dist_rate")),
+                    yaxis=dict(title_text=T("dist_dept_cnt"), dtick=5)
+                )
+                st.plotly_chart(fig_hist, use_container_width=True)
+                
+            with col_stats:
+                mean_p = dept_dist_df["pct"].mean()
+                median_p = dept_dist_df["pct"].median()
+                st.markdown(f"""
+                <div style="padding:20px; background:{C['bg']}; border:1px solid {C['border']}; border-radius:4px; line-height:2.2; font-size:.85rem;">
+                    <strong style="font-size:.75rem; text-transform:uppercase; color:{C['sub']};">{T('dist_stats')}</strong><br/>
+                    {T('dist_total')}: <strong style="color:{C['text']}">{len(dept_dist_df)}</strong><br/>
+                    {T('dist_mean')}: <strong style="color:{C['navy']}">{mean_p:.1f}%</strong><br/>
+                    {T('dist_median')}: <strong style="color:{C['navy']}">{median_p:.1f}%</strong><br/>
+                    {T('dist_exc')} (≥75%): <strong style="color:{C['green']}">{len(dept_dist_df[dept_dist_df['pct'] >= 75])}</strong> {T('dist_unit')}<br/>
+                    {T('dist_poor')} (<50%): <strong style="color:{C['red']}">{len(dept_dist_df[dept_dist_df['pct'] < 50])}</strong> {T('dist_unit')}
+                </div>
+                """, unsafe_allow_html=True)
+        section_wrap(T("sec_dist"), "", _t_dist)
 
 with tab4:
     def _t4():
