@@ -617,7 +617,12 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
     Nếu không có → fallback col[7] 'Phòng Ban' (tên Division)
     """
     col_ts  = _find_col(df, "timestamp", "thời gian")
-    col_pb  = _find_col(df, "phòng ban")   # col 7: Division lớn
+    
+    # Tìm tất cả các cột Division (phòng ban, khối)
+    pb_cols = [
+        c for c in df.columns 
+        if "phòng ban" in c.lower() or "khối" in c.lower()
+    ]
 
     # col 8..13: 'Bạn thuộc?' và các biến thể .1 .2 .3 .4 .5
     # Tìm tất cả cột "Bạn thuộc?" (không phải câu hỏi survey về gắn bó)
@@ -639,9 +644,13 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
                 sv_label = v
                 break
 
-        # Fallback: lấy Division lớn từ col_pb
-        if not sv_label and col_pb:
-            sv_label = _clean(row[col_pb])
+        # Fallback: lấy Division lớn từ các cột phòng ban / khối
+        if not sv_label:
+            for c_pb in pb_cols:
+                v = _clean(row[c_pb])
+                if v:
+                    sv_label = v
+                    break
 
         rows.append({"timestamp": ts, "survey_group": group, "sv_label": sv_label})
     return pd.DataFrame(rows)
