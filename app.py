@@ -588,7 +588,7 @@ def _parse_2ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
 
     rows = []
     for _, row in df.iterrows():
-        ts = pd.to_datetime(row[col_ts], errors="coerce", dayfirst=True) if col_ts else pd.NaT
+        ts = pd.to_datetime(row[col_ts], errors="coerce", dayfirst=False) if col_ts else pd.NaT
         pb = _clean(row[col_pb]) if col_pb else None
         sv_label = None
 
@@ -642,7 +642,7 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
 
     rows = []
     for _, row in df.iterrows():
-        ts = pd.to_datetime(row[col_ts], errors="coerce", dayfirst=True) if col_ts else pd.NaT
+        ts = pd.to_datetime(row[col_ts], errors="coerce", dayfirst=False) if col_ts else pd.NaT
 
         # Lấy giá trị từ các cột "Bạn thuộc?" — lấy giá trị không null đầu tiên
         sv_label = None
@@ -705,7 +705,7 @@ def load_all_surveys_enriched(
         return empty, warn_msgs
 
     df_all = pd.concat(parts, ignore_index=True)
-    df_all["timestamp"] = pd.to_datetime(df_all["timestamp"], errors="coerce", dayfirst=True)
+    df_all["timestamp"] = pd.to_datetime(df_all["timestamp"], errors="coerce", dayfirst=False)
 
     # Build WF lookup từ tất cả cột string
     lookup_exact, lookup_fallback = build_wf_lookup(_df_wf)
