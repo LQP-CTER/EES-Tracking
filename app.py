@@ -542,6 +542,14 @@ def enrich_survey(df_sv: pd.DataFrame, MAP_2AB: dict, MAP_3AB: dict,
                         wf_info = lookup_fallback.get(_norm(wf_val), {})
                 else:
                     wf_info = lookup_fallback.get(sv_norm, {})
+                    
+                    if not wf_info and "-" in sv_val:
+                        short_val = sv_val.split("-")[0].strip()
+                        wf_info = lookup_fallback.get(_norm(short_val), {})
+                        
+                    if not wf_info and "(" in sv_val:
+                        short_val2 = sv_val.split("(")[0].strip()
+                        wf_info = lookup_fallback.get(_norm(short_val2), {})
 
         r = row.to_dict()
         r.update({
