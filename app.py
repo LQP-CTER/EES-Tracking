@@ -292,17 +292,17 @@ html,body,[class*="css"]{{font-family:'SVN-Helvetica Now',system-ui,sans-serif!i
 .dtbl thead tr{{border-bottom:2px solid {C['navy']};}}
 .dtbl th{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.68rem;font-weight:700;
     letter-spacing:.12em;text-transform:uppercase;color:{C['sub']};
-    padding:8px 10px 10px;text-align:left;white-space:nowrap;background:transparent;}}
+    padding:8px 6px 10px;text-align:left;white-space:nowrap;background:transparent;}}
 .dtbl th.r{{text-align:right;}}
 .dtbl tbody tr{{border-bottom:1px solid {C['line']};transition:background .1s;}}
 .dtbl tbody tr:hover{{background:{C['slate']};}}
-.dtbl td{{padding:9px 10px;vertical-align:middle;color:{C['text']};}}
+.dtbl td{{padding:8px 6px;vertical-align:middle;color:{C['text']};}}
 .dtbl td.r{{text-align:right;font-variant-numeric:tabular-nums;font-size:.82rem;}}
-.dtbl td.nm{{font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
+.dtbl td.nm{{font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
 .dtbl .foot td{{border-top:2px solid {C['navy']};padding-top:11px;font-weight:700;color:{C['navy']};background:transparent;}}
 .dtbl .rnk{{font-family:'SVN-Helvetica Now',sans-serif;font-size:.78rem;font-weight:700;
     color:{C['muted']};text-align:right;width:28px;}}
-.prog-w{{height:5px;background:{C['line']};border-radius:1px;overflow:hidden;min-width:80px;}}
+.prog-w{{height:5px;background:{C['line']};border-radius:1px;overflow:hidden;min-width:60px;}}
 .prog-f{{height:5px;border-radius:1px;transition:width .3s ease;}}
 .pbg{{display:inline-block;font-family:'SVN-Helvetica Now',sans-serif;font-size:.82rem;
     font-weight:700;letter-spacing:.03em;padding:2px 8px;border-radius:2px;}}
@@ -1039,7 +1039,7 @@ with tab1:
     def _t1():
         if len(div_df)==0:
             st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-        c1,c2=st.columns([55,45])
+        c1,c2=st.columns([40,60])
         with c1: st.plotly_chart(render_chart(div_df,"Division",h=max(340,len(div_df)*52+70)),use_container_width=True)
         with c2: st.markdown(render_table(div_df,"Division"),unsafe_allow_html=True)
     section_wrap(T("sec_div"),f"{len(div_df)} {T('divisions')} · HC {total_hc:,}",_t1)
@@ -1050,7 +1050,7 @@ if tab2:
         def _t2():
             if len(dept_df)==0:
                 st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-            c1,c2=st.columns([55,45])
+            c1,c2=st.columns([40,60])
             with c1: st.plotly_chart(render_chart(dept_df,"Department",h=max(340,len(dept_df)*48+70)),use_container_width=True)
             with c2: st.markdown(render_table(dept_df,"Department"),unsafe_allow_html=True)
         section_wrap(T("sec_dept"),f"{len(dept_df)} {T('departments')}",_t2)
@@ -1061,7 +1061,7 @@ if tab3:
         def _t3():
             if len(sec_df)==0:
                 st.markdown(f'<div class="no-data">{T("no_data")}</div>',unsafe_allow_html=True); return
-            c1,c2=st.columns([55,45])
+            c1,c2=st.columns([40,60])
             with c1: st.plotly_chart(render_chart(sec_df,"Section",h=max(340,len(sec_df)*46+70)),use_container_width=True)
             with c2: st.markdown(render_table(sec_df,"Section"),unsafe_allow_html=True)
         section_wrap(T("sec_sec"),f"{len(sec_df)} {T('sections')} · HC {total_hc:,}",_t3)
