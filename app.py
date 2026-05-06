@@ -780,7 +780,7 @@ with st.sidebar:
         st.session_state.sg_val = ALL_GROUPS
 
     def update_sg():
-        st.session_state.sg_val = st.session_state.get("sel_groups_widget", st.session_state.sg_val)
+        st.session_state.sg_val = st.session_state.get("sel_groups_widget", st.session_state.get("sg_val", ALL_GROUPS))
 
     sel_groups = st.pills(
         T("survey_group"), ALL_GROUPS, selection_mode="multi", default=st.session_state.sg_val,
