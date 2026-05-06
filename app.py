@@ -532,24 +532,24 @@ def enrich_survey(df_sv: pd.DataFrame, MAP_2AB: dict, MAP_3AB: dict,
                     wf_info = lookup_fallback.get(sv_norm, {})
 
             elif grp in ("3A","3B"):
-                # MAP_3AB: sv_val → (wf_col, wf_val) → lookup exact column
-                mapping = map3ab_norm.get(sv_norm)
-                if mapping:
-                    wf_col, wf_val = mapping
-                    wf_col_norm = wf_col.strip()
-                    wf_info = lookup_exact.get((wf_col_norm, _norm(wf_val)))
-                    if not wf_info:
-                        wf_info = lookup_fallback.get(_norm(wf_val), {})
-                else:
-                    wf_info = lookup_fallback.get(sv_norm, {})
+                candidates = [sv_val]
+                if "-" in sv_val: candidates.append(sv_val.split("-")[0].strip())
+                if "(" in sv_val: candidates.append(sv_val.split("(")[0].strip())
+                
+                for cand in candidates:
+                    c_norm = _norm(cand)
+                    mapping = map3ab_norm.get(c_norm)
+                    if mapping:
+                        wf_col, wf_val = mapping
+                        wf_col_norm = wf_col.strip()
+                        wf_info = lookup_exact.get((wf_col_norm, _norm(wf_val)))
+                        if not wf_info:
+                            wf_info = lookup_fallback.get(_norm(wf_val), {})
+                    else:
+                        wf_info = lookup_fallback.get(c_norm, {})
                     
-                    if not wf_info and "-" in sv_val:
-                        short_val = sv_val.split("-")[0].strip()
-                        wf_info = lookup_fallback.get(_norm(short_val), {})
-                        
-                    if not wf_info and "(" in sv_val:
-                        short_val2 = sv_val.split("(")[0].strip()
-                        wf_info = lookup_fallback.get(_norm(short_val2), {})
+                    if wf_info:
+                        break
 
         r = row.to_dict()
         r.update({
@@ -629,7 +629,9 @@ def _parse_3ab(df: pd.DataFrame, group: str) -> pd.DataFrame:
     # Tìm tất cả các cột Division (phòng ban, khối)
     pb_cols = [
         c for c in df.columns 
-        if "phòng ban" in c.lower() or "khối" in c.lower()
+        if ("phòng ban" in c.lower() or "khối" in c.lower())
+        and "cơ cấu" not in c.lower()
+        and "khối lượng" not in c.lower()
     ]
 
     # col 8..13: 'Bạn thuộc?' và các biến thể .1 .2 .3 .4 .5
