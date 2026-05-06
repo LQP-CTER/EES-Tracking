@@ -839,7 +839,9 @@ if sel_dept:   df_sv = df_sv[df_sv["wf_department"].isin(sel_dept)]
 if sel_sec:    df_sv = df_sv[df_sv["wf_section_vn"].isin(sel_sec)]
 if date_rng and isinstance(date_rng,(tuple,list)) and len(date_rng)==2:
     d0, d1 = date_rng
-    df_sv = df_sv[(df_sv["timestamp"].dt.date>=d0) & (df_sv["timestamp"].dt.date<=d1)
+    d0_ts = pd.Timestamp(d0)
+    d1_ts = pd.Timestamp(d1) + pd.Timedelta(days=1, microseconds=-1)
+    df_sv = df_sv[(df_sv["timestamp"] >= d0_ts) & (df_sv["timestamp"] <= d1_ts)
                   | df_sv["timestamp"].isna()]
 # ══════════════════════════════════════════════════════════════
 # KPI
